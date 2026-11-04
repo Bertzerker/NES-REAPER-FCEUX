@@ -1,0 +1,2 @@
+# Preserve generated third-party strings and license notices verbatim.
+rea/public/vendor/** text eol=lf -whitespace
