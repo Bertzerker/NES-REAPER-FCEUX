@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   build:
+    if: github.repository == 'TASEmulators/fceux'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4

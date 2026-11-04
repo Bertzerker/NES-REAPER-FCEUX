@@ -26,6 +26,8 @@ env:
 
 jobs:
   build:
+    # This is the inherited Qt build, not the REAPER Windows release pipeline.
+    if: github.repository == 'TASEmulators/fceux'
     runs-on: windows-2022
     outputs:
       zip_filename: ${{ steps.version.outputs.zip_filename }}

@@ -1,3 +1,5 @@
+// Modified by MEGA REAPER - FCEUX, 2026-11-04: opt-in REA inspection hooks and Windows scheduling.
+// Independent fork of TASEmulators/fceux; upstream notices retained. See FORK-NOTICE.md.
 /* FCE Ultra - NES/Famicom Emulator
  *
  * Copyright notice for this file:
@@ -21,6 +23,7 @@
 #include "types.h"
 #include "x6502.h"
 #include "fceu.h"
+#include "rea.h"
 #include "debug.h"
 #include "sound.h"
 #ifdef _S9XLUA_H
@@ -629,6 +632,7 @@ extern int test; test++;
 
    _PI=_P;
    b1=RdMem(_PC);
+   REA_Opcode(b1);
 
    ADDCYC(CycTable[b1]);
 

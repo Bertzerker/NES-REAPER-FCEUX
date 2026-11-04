@@ -1,3 +1,5 @@
+// Modified by MEGA REAPER - FCEUX, 2026-11-04: opt-in REA inspection hooks and Windows scheduling.
+// Independent fork of TASEmulators/fceux; upstream notices retained. See FORK-NOTICE.md.
 /* FCE Ultra - NES/Famicom Emulator
 *
 * Copyright notice for this file:
@@ -39,6 +41,7 @@
 #include "video.h"
 #include "input.h"
 #include "fceu.h"
+#include "../../rea.h"
 #include "types.h"
 #include "cart.h"
 #include "ines.h"
@@ -2758,6 +2761,7 @@ int CreateMainWindow()
 	updateGameDependentMenusDebugger();
 	if (MainWindow_wndx==-32000) MainWindow_wndx=0; //Just in case
 	if (MainWindow_wndy==-32000) MainWindow_wndy=0;
+	REA_Startup("CreateWindowEx");
 	hAppWnd = CreateWindowEx(
 		0,
 		"FCEUXWindowClass",
@@ -2775,7 +2779,9 @@ int CreateMainWindow()
 	//CenterWindowOnScreen(hAppWnd);
 	DragAcceptFiles(hAppWnd, 1);
 
+	REA_Startup("window handle ready; showing window");
 	SetMainWindowStuff();
+	REA_Startup("window shown");
 
 	return 1;
 }
@@ -2783,6 +2789,9 @@ int CreateMainWindow()
 void SetMainWindowStuff()
 {
 	RECT tmp;
+	// Inspection launches coexist with other debugger windows. Do not synchronously
+	// activate an unrelated foreground UI thread while creating this window.
+	const bool reaStartup = getenv("FCEUX_REA_PORT") != nullptr && !GameInfo;
 
 	GetWindowRect(hAppWnd, &tmp);
 
@@ -2791,7 +2800,8 @@ void SetMainWindowStuff()
 		winwidth = tmp.right - tmp.left;
 		winheight = tmp.bottom - tmp.top;
 
-		ShowWindow(hAppWnd, SW_SHOWMAXIMIZED);
+		if (reaStartup) ShowWindowAsync(hAppWnd, SW_SHOWMAXIMIZED);
+		else ShowWindow(hAppWnd, SW_SHOWMAXIMIZED);
 	} else
 	{
 		RECT srect;
@@ -2820,13 +2830,13 @@ void SetMainWindowStuff()
 			tmp.top,
 			srect.right,
 			srect.bottom,
-			SWP_SHOWWINDOW
+			SWP_SHOWWINDOW | (reaStartup ? SWP_NOACTIVATE : 0)
 			);
 
 		winwidth = srect.right;
 		winheight = srect.bottom;
 
-		ShowWindow(hAppWnd, SW_SHOWNORMAL);
+		ShowWindow(hAppWnd, reaStartup ? SW_SHOWNOACTIVATE : SW_SHOWNORMAL);
 	}
 
 	if (eoptions & EO_BESTFIT && !windowedfailed)

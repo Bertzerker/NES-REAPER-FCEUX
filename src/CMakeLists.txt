@@ -389,6 +389,7 @@ set(SRC_CORE
   	${CMAKE_CURRENT_SOURCE_DIR}/debugsymboltable.cpp
   	${CMAKE_CURRENT_SOURCE_DIR}/drawing.cpp
   	${CMAKE_CURRENT_SOURCE_DIR}/fceu.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rea.cpp
   	${CMAKE_CURRENT_SOURCE_DIR}/fds.cpp
   	${CMAKE_CURRENT_SOURCE_DIR}/file.cpp
   	${CMAKE_CURRENT_SOURCE_DIR}/emufile.cpp

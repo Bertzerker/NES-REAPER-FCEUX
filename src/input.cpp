@@ -1,3 +1,5 @@
+// Modified by MEGA REAPER - FCEUX, 2026-11-04: opt-in REA inspection hooks and Windows scheduling.
+// Independent fork of TASEmulators/fceux; upstream notices retained. See FORK-NOTICE.md.
 /* FCE Ultra - NES/Famicom Emulator
 *
 * Copyright notice for this file:
@@ -23,6 +25,7 @@
 #include "x6502.h"
 
 #include "fceu.h"
+#include "rea.h"
 #include "sound.h"
 #include "netplay.h"
 #include "movie.h"
@@ -465,6 +468,7 @@ void FCEU_UpdateInput(void)
 	if(FCEUnetplay)
 		NetplayUpdate(joy);
 
+	REA_Input();
 	FCEUMOV_AddInputState();
 
 	//TODO - should this apply to the movie data? should this be displayed in the input hud?

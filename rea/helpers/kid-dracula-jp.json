@@ -1,0 +1,1033 @@
+{
+  "version": 1,
+  "id": "kid-dracula-jp",
+  "title": "Akumajou Special — Boku Dracula-kun (Japan)",
+  "romMd5": [
+    "96084e640ed9a02c644b39986c269662"
+  ],
+  "notes": "Player terrain probes and exact per-counterpart contact windows recovered from this ROM. Orange rectangles show where an enemy origin triggers the player contact test, including both objects’ dimensions. They are not independent hurt rectangles. Cyan marks are potential terrain samples. Grey windows indicate damage is currently gated. Row 4/type $06 replay verified in stage 0. Other rows are code-derived; special bosses/forms remain unvalidated. End-of-frame RAM can differ from positions earlier in that frame.",
+  "classes": [
+    {
+      "id": "player",
+      "label": "Player",
+      "count": 1,
+      "active": {
+        "op": "all",
+        "args": [
+          {
+            "op": "all",
+            "args": [
+              {
+                "op": "eq",
+                "args": [
+                  {
+                    "ram": 24
+                  },
+                  3
+                ]
+              },
+              {
+                "op": "eq",
+                "args": [
+                  {
+                    "ram": 25
+                  },
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "op": "ne",
+            "args": [
+              {
+                "ram": 1280
+              },
+              0
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "ram": 1400
+              },
+              0
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "ram": 1430
+              },
+              0
+            ]
+          }
+        ]
+      },
+      "x": {
+        "ram": 1340
+      },
+      "y": {
+        "ram": 1310
+      },
+      "shapes": [
+        {
+          "kind": "point",
+          "label": "right foot (probe 0)",
+          "x": 4,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              -17,
+              16
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 0
+        },
+        {
+          "kind": "point",
+          "label": "left foot (probe 1)",
+          "x": -5,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              -17,
+              16
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 1
+        },
+        {
+          "kind": "point",
+          "label": "left lower side (probe 2)",
+          "x": -8,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              -15,
+              13
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 2
+        },
+        {
+          "kind": "point",
+          "label": "left middle side (probe 3)",
+          "x": -8,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              -1,
+              0
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 3
+        },
+        {
+          "kind": "point",
+          "label": "left upper side (probe 4)",
+          "x": -8,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              11,
+              -12
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 4
+        },
+        {
+          "kind": "point",
+          "label": "right lower side (probe 5)",
+          "x": 7,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              -15,
+              13
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 5
+        },
+        {
+          "kind": "point",
+          "label": "right middle side (probe 6)",
+          "x": 7,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              -1,
+              0
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 6
+        },
+        {
+          "kind": "point",
+          "label": "right upper side (probe 7)",
+          "x": 7,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              11,
+              -12
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 7
+        },
+        {
+          "kind": "point",
+          "label": "right head (probe 8)",
+          "x": 4,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              15,
+              -16
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 8
+        },
+        {
+          "kind": "point",
+          "label": "left head (probe 9)",
+          "x": -5,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              15,
+              -16
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 9
+        },
+        {
+          "kind": "point",
+          "label": "center lower (probe 10)",
+          "x": 0,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              -16,
+              15
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 10
+        },
+        {
+          "kind": "point",
+          "label": "center foot (probe 11)",
+          "x": 0,
+          "y": {
+            "op": "select",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  128
+                ]
+              },
+              -17,
+              16
+            ]
+          },
+          "color": "#69e3ff",
+          "confidence": "code-derived",
+          "evidence": "Fixed PRG bank 15: $E671 adds signed offsets from $E803/$E81B (or $E833 when $AD bit 7 is set) to $053C/$051E. Potential probe, not necessarily called every frame.",
+          "observedPc": 58993,
+          "probeIndex": 11
+        }
+      ]
+    },
+    {
+      "id": "enemies",
+      "label": "Enemy / contact object",
+      "count": 18,
+      "active": {
+        "op": "all",
+        "args": [
+          {
+            "op": "all",
+            "args": [
+              {
+                "op": "eq",
+                "args": [
+                  {
+                    "ram": 24
+                  },
+                  3
+                ]
+              },
+              {
+                "op": "eq",
+                "args": [
+                  {
+                    "ram": 25
+                  },
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "op": "ne",
+            "args": [
+              {
+                "ram": 1478,
+                "stride": 1
+              },
+              0
+            ]
+          },
+          {
+            "op": "ne",
+            "args": [
+              {
+                "ram": 1292,
+                "stride": 1
+              },
+              0
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "ram": 1442,
+                "stride": 1
+              },
+              0
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "ram": 1412,
+                "stride": 1
+              },
+              0
+            ]
+          },
+          {
+            "op": "lt",
+            "args": [
+              {
+                "ram": 1322,
+                "stride": 1
+              },
+              192
+            ]
+          }
+        ]
+      },
+      "x": {
+        "ram": 1352,
+        "stride": 1
+      },
+      "y": {
+        "ram": 1322,
+        "stride": 1
+      },
+      "shapes": [
+        {
+          "kind": "point",
+          "label": "Enemy origin",
+          "color": "#f89ce5",
+          "confidence": "code-derived",
+          "evidence": "Object update $E970 and contact entry bank 13:$BC96 read $0548+X / $052A+X; count 18 from $E96B."
+        }
+      ]
+    }
+  ],
+  "contactRules": [
+    {
+      "algorithm": "6502-contact-window-v1",
+      "label": "Player contact window",
+      "playerClass": "player",
+      "targetClass": "enemies",
+      "row": {
+        "op": "select",
+        "args": [
+          {
+            "op": "and",
+            "args": [
+              {
+                "ram": 1958,
+                "stride": 1
+              },
+              31
+            ]
+          },
+          {
+            "op": "and",
+            "args": [
+              {
+                "ram": 1958,
+                "stride": 1
+              },
+              31
+            ]
+          },
+          {
+            "op": "div",
+            "args": [
+              {
+                "op": "table",
+                "args": [
+                  [
+                    239,
+                    12,
+                    12,
+                    12,
+                    12,
+                    0,
+                    16,
+                    16,
+                    0,
+                    16,
+                    16,
+                    40,
+                    28,
+                    28,
+                    8,
+                    24,
+                    24,
+                    20,
+                    0,
+                    36,
+                    0,
+                    0,
+                    28,
+                    0,
+                    0,
+                    28,
+                    24,
+                    0,
+                    24,
+                    16,
+                    24,
+                    0,
+                    0,
+                    0,
+                    36,
+                    0,
+                    0,
+                    12,
+                    12,
+                    28,
+                    0,
+                    28,
+                    0,
+                    40,
+                    0,
+                    28,
+                    16,
+                    16,
+                    12,
+                    28,
+                    16,
+                    12,
+                    28,
+                    12,
+                    24,
+                    32,
+                    24,
+                    16,
+                    20,
+                    24,
+                    0,
+                    0,
+                    20,
+                    0,
+                    40,
+                    0,
+                    16,
+                    16,
+                    0,
+                    96,
+                    44,
+                    4,
+                    16,
+                    44,
+                    12,
+                    32,
+                    12,
+                    20,
+                    24,
+                    24,
+                    24,
+                    0,
+                    0,
+                    0,
+                    20,
+                    12,
+                    12,
+                    16,
+                    12,
+                    12,
+                    12,
+                    44,
+                    16,
+                    8,
+                    16,
+                    44,
+                    44,
+                    44,
+                    12,
+                    44,
+                    44,
+                    40,
+                    12,
+                    36,
+                    12,
+                    12,
+                    16,
+                    16,
+                    0,
+                    24,
+                    24,
+                    24,
+                    80,
+                    0,
+                    76,
+                    0,
+                    24,
+                    12,
+                    0,
+                    0,
+                    68,
+                    68,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    12,
+                    12,
+                    12,
+                    12,
+                    20,
+                    0,
+                    100,
+                    88,
+                    20,
+                    0,
+                    24,
+                    4,
+                    0,
+                    44,
+                    12,
+                    0,
+                    4,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  {
+                    "op": "add",
+                    "args": [
+                      {
+                        "op": "and",
+                        "args": [
+                          {
+                            "ram": 1478,
+                            "stride": 1
+                          },
+                          127
+                        ]
+                      },
+                      {
+                        "op": "select",
+                        "args": [
+                          {
+                            "op": "eq",
+                            "args": [
+                              {
+                                "ram": 60
+                              },
+                              8
+                            ]
+                          },
+                          128,
+                          0
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              4
+            ]
+          }
+        ]
+      },
+      "rows": [
+        [
+          247,
+          16,
+          241,
+          29
+        ],
+        [
+          245,
+          20,
+          239,
+          33
+        ],
+        [
+          245,
+          20,
+          236,
+          41
+        ],
+        [
+          241,
+          28,
+          236,
+          41
+        ],
+        [
+          241,
+          28,
+          228,
+          57
+        ],
+        [
+          233,
+          44,
+          228,
+          57
+        ],
+        [
+          233,
+          44,
+          236,
+          39
+        ],
+        [
+          237,
+          36,
+          232,
+          49
+        ],
+        [
+          233,
+          44,
+          239,
+          33
+        ],
+        [
+          233,
+          44,
+          232,
+          47
+        ],
+        [
+          237,
+          36,
+          236,
+          39
+        ],
+        [
+          237,
+          36,
+          228,
+          55
+        ],
+        [
+          236,
+          38,
+          210,
+          91
+        ],
+        [
+          216,
+          78,
+          230,
+          51
+        ],
+        [
+          224,
+          62,
+          234,
+          43
+        ],
+        [
+          152,
+          206,
+          234,
+          43
+        ],
+        [
+          216,
+          78,
+          210,
+          91
+        ],
+        [
+          216,
+          78,
+          234,
+          43
+        ],
+        [
+          224,
+          62,
+          210,
+          91
+        ],
+        [
+          244,
+          22,
+          226,
+          59
+        ],
+        [
+          232,
+          46,
+          218,
+          75
+        ],
+        [
+          224,
+          62,
+          218,
+          75
+        ],
+        [
+          197,
+          116,
+          210,
+          91
+        ],
+        [
+          244,
+          22,
+          218,
+          75
+        ],
+        [
+          244,
+          22,
+          202,
+          107
+        ],
+        [
+          232,
+          46,
+          206,
+          99
+        ]
+      ],
+      "carry": {
+        "op": "select",
+        "args": [
+          {
+            "op": "and",
+            "args": [
+              {
+                "ram": 1958,
+                "stride": 1
+              },
+              31
+            ]
+          },
+          0,
+          {
+            "op": "gte",
+            "args": [
+              {
+                "ram": 60
+              },
+              8
+            ]
+          }
+        ]
+      },
+      "enabled": {
+        "op": "any",
+        "args": [
+          {
+            "op": "lt",
+            "args": [
+              {
+                "ram": 1478,
+                "stride": 1
+              },
+              5
+            ]
+          },
+          {
+            "op": "all",
+            "args": [
+              {
+                "op": "lt",
+                "args": [
+                  {
+                    "ram": 162
+                  },
+                  8
+                ]
+              },
+              {
+                "op": "eq",
+                "args": [
+                  {
+                    "ram": 192
+                  },
+                  0
+                ]
+              },
+              {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "and",
+                    "args": [
+                      {
+                        "ram": 1958,
+                        "stride": 1
+                      },
+                      160
+                    ]
+                  },
+                  0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "trimEnabled": {
+        "op": "and",
+        "args": [
+          {
+            "ram": 177
+          },
+          128
+        ]
+      },
+      "trimInverted": {
+        "op": "and",
+        "args": [
+          {
+            "ram": 173
+          },
+          128
+        ]
+      },
+      "verifiedRows": [
+        4
+      ],
+      "evidence": "Bank 13:$BC96..$BD11; row offsets fixed $E83E or ($07A6+X & $1F)*4; four-byte rows bank 13:$BD12. $BCF3 marks contact, $BD0B jumps to $DD88 (DEC $AA). Stage-0 type $06/row 4 reproduced health 3→2; see research/KID-DRACULA.md.",
+      "verifiedWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "ram": 60
+              },
+              0
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 177
+                  },
+                  128
+                ]
+              },
+              0
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "and",
+                "args": [
+                  {
+                    "ram": 173
+                  },
+                  192
+                ]
+              },
+              0
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "ram": 1478,
+                "stride": 1
+              },
+              6
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

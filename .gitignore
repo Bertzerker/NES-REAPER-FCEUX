@@ -50,3 +50,14 @@ fceux-net-server
 
 # typical CMake build directory
 /build
+
+# REA local builds, captures, and analyst data
+/rea/obj/
+/rea/bin/
+/rea/session/
+/rea/test-output/
+/roms/
+/rea/*.log
+/build-rea.log
+/dist/
+/rea/vendor-cache/

@@ -1,3 +1,5 @@
+// Modified by MEGA REAPER - FCEUX, 2026-11-04: opt-in REA inspection hooks and Windows scheduling.
+// Independent fork of TASEmulators/fceux; upstream notices retained. See FORK-NOTICE.md.
 /* FCE Ultra - NES/Famicom Emulator
  *
  * Copyright notice for this file:
@@ -21,6 +23,7 @@
 #include "types.h"
 #include "x6502.h"
 #include "fceu.h"
+#include "rea.h"
 #include "ppu.h"
 #include "sound.h"
 #include "netplay.h"
@@ -163,6 +166,7 @@ void FCEU_TogglePPU(void) {
 
 static void FCEU_CloseGame(void)
 {
+	REA_Reset();
 	if (GameInfo)
 	{
 		if (AutoResumePlay)
@@ -727,6 +731,7 @@ extern unsigned int frameAdvHoldTimer;
 
 ///Skip may be passed in, if FRAMESKIP is #defined, to cause this to emulate more than one frame
 void FCEUI_Emulate(uint8 **pXBuf, int32 **SoundBuf, int32 *SoundBufSize, int skip) {
+	REA_Poll();
 	FCEU_PROFILE_FUNC("Emulate Single Frame");
 	//skip initiates frame skip if 1, or frame skip and sound skip if 2
 	FCEU_MAYBE_UNUSED int r;
@@ -826,7 +831,9 @@ void FCEUI_Emulate(uint8 **pXBuf, int32 **SoundBuf, int32 *SoundBufSize, int ski
 #endif
 
 	if (geniestage != 1) FCEU_ApplyPeriodicCheats();
+	REA_BeginFrame();
 	r = FCEUPPU_Loop(skip);
+	REA_EndFrame();
 
 	if (skip != 2) ssize = FlushEmulateSound();  //If skip = 2 we are skipping sound processing
 

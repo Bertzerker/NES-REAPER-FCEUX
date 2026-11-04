@@ -1,3 +1,5 @@
+// Modified by MEGA REAPER - FCEUX, 2026-11-04: opt-in REA inspection hooks and Windows scheduling.
+// Independent fork of TASEmulators/fceux; upstream notices retained. See FORK-NOTICE.md.
 /* FCE Ultra - NES/Famicom Emulator
  *
  * Copyright notice for this file:
@@ -22,6 +24,7 @@
 #include "types.h"
 #include "x6502.h"
 #include "fceu.h"
+#include "rea.h"
 #include "ppu.h"
 #include "nsf.h"
 #include "sound.h"
@@ -1339,6 +1342,7 @@ static void DoLine(void) {
 		FCEU_dwmemset(target, tem, 256);
 	}
 
+	REA_RasterLine(scanline, target, sprlinebuf, spork != 0, PPU[1]);
 	if (SpriteON)
 		CopySprites(target);
 

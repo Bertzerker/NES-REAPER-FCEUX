@@ -1,3 +1,5 @@
+// Modified by MEGA REAPER - FCEUX, 2026-11-04: opt-in REA inspection hooks and Windows scheduling.
+// Independent fork of TASEmulators/fceux; upstream notices retained. See FORK-NOTICE.md.
 /* FCE Ultra - NES/Famicom Emulator
  *
  * Copyright notice for this file:
@@ -44,6 +46,7 @@ extern "C" { FILE __iob_func[3] = { *stdin,*stdout,*stderr }; }
 #include "../../version.h"
 #include "../../types.h"
 #include "../../fceu.h"
+#include "../../rea.h"
 #include "../../ines.h"
 #include "../../state.h"
 #include "../../debug.h"
@@ -559,7 +562,7 @@ void FCEUD_OnCloseGame()
 //Changes the thread priority of the main thread.
 void DoPriority()
 {
-	if(eoptions & EO_HIGHPRIO)
+	if((eoptions & EO_HIGHPRIO) && !getenv("FCEUX_REA_PORT"))
 	{
 		if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST))
 		{
@@ -577,11 +580,15 @@ void DoPriority()
 
 int DriverInitialize()
 {
+	REA_Startup("initializing sound");
 	if(soundo)
 		soundo = InitSound();
+	REA_Startup("sound ready; setting video mode");
 
 	SetVideoMode(fullscreen);
+	REA_Startup("video ready; initializing input");
 	InitInputStuff();             /* Initialize DInput interfaces. */
+	REA_Startup("input ready");
 
 	return 1;
 }
@@ -671,6 +678,7 @@ static BOOL CALLBACK EnumCallbackFCEUXInstantiated(HWND hWnd, LPARAM lParam)
 #include "x6502.h"
 int main(int argc,char *argv[])
 {
+	REA_Startup("main");
 	{
 #ifdef MULTITHREAD_STDLOCALE_WORKAROUND
 		// Note: there's a known threading bug regarding std::locale with MSVC according to
@@ -686,13 +694,17 @@ int main(int argc,char *argv[])
 #endif
 	}
 
-	SetThreadAffinityMask(GetCurrentThread(),1);
+	// Modern inspection sessions share the desktop with other developer tools.
+	// Let Windows schedule this thread instead of forcing every core onto CPU 0.
+	if (!getenv("FCEUX_REA_PORT")) SetThreadAffinityMask(GetCurrentThread(),1);
+	REA_Startup("locale and affinity ready");
 
 	//printf("%08x",opsize); //AGAIN?!
 
 	char *t;
 
 	initArchiveSystem();
+	REA_Startup("archive ready");
 
 	if(timeBeginPeriod(1) != TIMERR_NOERROR)
 	{
@@ -708,6 +720,7 @@ int main(int argc,char *argv[])
 	}
 
 	ApplyDefaultCommandMapping();
+	REA_Startup("core initialized");
 
 	fceu_hInstance = GetModuleHandle(0);
 	fceu_hAccel = LoadAccelerators(fceu_hInstance,MAKEINTRESOURCE(IDR_ACCELERATOR1));
@@ -718,10 +731,12 @@ int main(int argc,char *argv[])
 	// load fceux.cfg
 	sprintf(TempArray,"%s\\%s",BaseDirectory.c_str(),cfgFile.c_str());
 	LoadConfig(TempArray);
+	REA_Startup("config loaded");
 	//initDirectories();
 
 	// Parse the commandline arguments
 	t = ParseArgies(argc, argv);
+	REA_Startup("arguments parsed");
 
 	if(PlayInput)
 		PlayInputFile = fopen(PlayInput, "rb");
@@ -775,6 +790,7 @@ int main(int argc,char *argv[])
 	// Initialize default directories
 	CreateDirs();
 	SetDirs();
+	REA_Startup("directories ready");
 
 	DoVideoConfigFix();
 	DoTimingConfigFix();
@@ -827,7 +843,9 @@ int main(int argc,char *argv[])
 		}
 	}
 
+	REA_Startup("creating window");
 	CreateMainWindow();
+	REA_Startup("window created; initializing DirectInput");
 
 	if (!InitDInput())
 	{
@@ -835,12 +853,14 @@ int main(int argc,char *argv[])
 		return 1;
 	}
 
+	REA_Startup("DirectInput ready; initializing driver");
 	if (!DriverInitialize())
 	{
 		do_exit();
 		return 1;
 	}
 	UpdateMenuHotkeys(FCEUMENU_MAIN);
+	REA_Startup("driver ready");
 
 	debugSystem = new DebugSystem();
 	debugSystem->init();
@@ -849,7 +869,9 @@ int main(int argc,char *argv[])
 
 	if (t)
 	{
+		REA_Startup("loading ROM");
 		ALoad(t);
+		REA_Startup("ROM load returned");
 	} else
 	{
 		if (AutoResumePlay && romNameWhenClosingEmulator && romNameWhenClosingEmulator[0])

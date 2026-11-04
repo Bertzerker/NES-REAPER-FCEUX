@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   build:
+    if: github.repository == 'TASEmulators/fceux'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

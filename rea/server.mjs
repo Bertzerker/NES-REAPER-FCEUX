@@ -1,0 +1,155 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+import http from 'node:http';
+import net from 'node:net';
+import {randomBytes,createHash} from 'node:crypto';
+import {readFile,writeFile,mkdir,rename,readdir} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+import {spawn,execFileSync} from 'node:child_process';
+import {decodePacket,sizes,views,inspectPixel,sprite,spritePixel} from './public/inspection.mjs';
+import {validateHelper,evaluateHelper} from './public/helpers.mjs';
+
+const here=path.dirname(fileURLToPath(import.meta.url));
+export async function startInspector({port=8775,nativePort=port+1,token=randomBytes(32).toString('hex'),dataDir=path.join(here,'session'),helperDir=path.join(here,'helpers')}={}) {
+ const helpers=new Map();
+ for(const directory of [helperDir,path.join(dataDir,'helpers')]){let names=[];try{names=await readdir(directory);}catch(e){if(e.code!=='ENOENT')throw e;}if(names.length>128)throw Error('Too many helper profiles');for(const name of names.filter(n=>/^[-a-z0-9]+\.json$/.test(n))){const raw=await readFile(path.join(directory,name),'utf8');if(raw.length>60000)throw Error('Helper too large');const p=validateHelper(JSON.parse(raw));helpers.set(p.id,p);}}
+ const history=new Map(),pinned=new Map(),waiting=new Set(),pending=new Map();
+ let latest=null,producer=null,nextRequest=1,closed=false,captures=0,invalidPackets=0,lastDemand=0,receivedBytes=0,demandRequests=0;
+ const origin=`http://127.0.0.1:${port}`, allowedHost=`127.0.0.1:${port}`;
+ const trim=(map,n)=>{while(map.size>n) map.delete(map.keys().next().value);};
+ const remember=s=>{latest=s;history.set(s.meta.id,s);trim(history,16);captures++; for(const wake of waiting) wake(); waiting.clear();};
+ const demand=()=>{const now=Date.now();if(producer && now-lastDemand>=500 && !pending.size){producer.write('0 capture\n');lastDemand=now;demandRequests++;}};
+ const native=net.createServer(socket=>{
+  let authenticated=false,buffer=Buffer.alloc(0);
+  socket.setNoDelay(true); socket.setTimeout(5000,()=>{if(!authenticated) socket.destroy();});
+  socket.on('data',chunk=>{
+   receivedBytes+=chunk.length;
+   buffer=Buffer.concat([buffer,chunk]);
+   try {
+    while(buffer.length>=4) {
+     const n=buffer.readUInt32LE(0); if(n<4||n>1500000) throw Error('Invalid native length');
+     if(buffer.length<n+4) break;
+     const packet=buffer.subarray(4,n+4);buffer=buffer.subarray(n+4);
+     const s=decodePacket(packet),m=s.meta;
+     if(!authenticated) {
+      if(m.kind!=='hello'||m.token!==token||producer) throw Error('Producer authentication failed');
+      authenticated=true;producer=socket;socket.setTimeout(0);continue;
+     }
+     if(m.kind==='snapshot') remember(s);
+     else if(m.kind==='reply') { const p=pending.get(m.request);if(p){pending.delete(m.request);p.resolve(m);} }
+     else throw Error('Unknown native message');
+    }
+   } catch { invalidPackets++;socket.destroy(); }
+  });
+  socket.on('error',()=>{});
+  socket.on('close',()=>{if(producer===socket){producer=null;for(const p of pending.values())p.reject(Error('Emulator disconnected'));pending.clear();}});
+ });
+ const number=(v,def,min,max)=>{const n=v===null||v===undefined?def:Number(v);if(!Number.isSafeInteger(n)||n<min||n>max)throw Error(`Expected integer ${min}..${max}`);return n;};
+ function snapshot(id=latest?.meta.id,pin=false) {
+  const s=pinned.get(id)||history.get(id);if(!s){const e=Error('Snapshot missing or expired');e.status=404;throw e;}
+  if(pin){pinned.set(id,s);trim(pinned,16);}return s;
+ }
+ const jsonSnapshot=s=>({...s.meta,buffers:Object.fromEntries(Object.entries(s.buffers).map(([k,v])=>[k,Buffer.from(v).toString('hex')]))});
+ function command(op,a=0,b=0,c=0) {
+  if(!producer) return Promise.reject(Error('Emulator is disconnected'));
+  if(pending.size && (op!=='pause'||pending.size>=2)) return Promise.reject(Error('Another control command is pending'));
+  const request=nextRequest++;
+  return new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>{pending.delete(request);reject(Error('Command timed out; execution state is unknown. Inspect before retrying.'));},90000);
+   pending.set(request,{resolve:r=>{clearTimeout(timer);resolve(r);},reject:e=>{clearTimeout(timer);reject(e);}});
+   producer.write(`${request} ${op} ${a} ${b} ${c}\n`);
+  });
+ }
+ const server=http.createServer(async(req,res)=>{
+  res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
+  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'");
+  try {
+   if(req.headers.host!==allowedHost || (req.headers.origin && req.headers.origin!==origin)) {res.writeHead(403);res.end('Local origin required');return;}
+   const u=new URL(req.url,origin),q=u.searchParams;
+   const send=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
+   if(req.method==='POST') {
+    if(req.headers['x-rea-token']!==token){send({error:'Control token required'},403);return;}
+    let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>(u.pathname==='/api/helpers'?60000:16384))throw Error('Request too large');} const body=JSON.parse(raw||'{}');
+    if(u.pathname==='/api/helpers'){
+     const p=validateHelper(body);if(!helpers.has(p.id)&&helpers.size>=128)throw Error('Helper profile limit reached');
+     const directory=path.join(dataDir,'helpers');await mkdir(directory,{recursive:true});const filename=path.join(directory,p.id+'.json');await writeFile(filename+'.tmp',JSON.stringify(p,null,2));await rename(filename+'.tmp',filename);helpers.set(p.id,p);send(p,201);return;
+    }
+    if(u.pathname==='/api/control') {
+     const op=body.op;let a=0,b=0,c=0;
+     if(op==='step'){a=number(body.frames,1,1,3600);b=number(body.pad0,0,0,255);c=number(body.pad1,0,0,255);}
+     else if(op==='save'||op==='load')a=number(body.slot,0,0,15);
+     else if(op==='trace')a=number(body.limit,256,1,2048);
+     else if(op==='watch'){a=number(body.start,0,0,65535);b=number(body.end,a,a,65535);c=number(body.access,2,0,7);}
+     else if(op!=='pause'&&op!=='run')throw Error('Unknown control operation');
+     const result=await command(op,a,b,c);if(result.snapshot)snapshot(result.snapshot,true);send(result,result.ok?200:409);return;
+    }
+    if(u.pathname==='/api/annotations') {
+     const s=snapshot(body.snapshot,true);
+     if(typeof body.text!=='string'||body.text.length<1||body.text.length>2000||!['observation','hypothesis'].includes(body.kind))throw Error('Annotation needs text and kind observation or hypothesis');
+     await mkdir(dataDir,{recursive:true}); const filename=path.join(dataDir,'annotations.json');
+     let notes=[];try{notes=JSON.parse(await readFile(filename,'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}
+     if(notes.length>=256)throw Error('Annotation limit reached; archive this session first');
+     const evidence=JSON.stringify(jsonSnapshot(s)),sha256=createHash('sha256').update(evidence).digest('hex');
+     await writeFile(path.join(dataDir,`${sha256}.json`),evidence,{flag:'wx'}).catch(e=>{if(e.code!=='EEXIST')throw e;});
+     const note={id:randomBytes(8).toString('hex'),snapshot:s.meta.id,romMd5:s.meta.romMd5,kind:body.kind,text:body.text,evidenceSha256:sha256,createdAt:new Date().toISOString()};
+     notes.push(note);await writeFile(`${filename}.tmp`,JSON.stringify(notes,null,2));await rename(`${filename}.tmp`,filename);send(note,201);return;
+    }
+    send({error:'Unknown endpoint'},404);return;
+   }
+   if(req.method!=='GET'){res.writeHead(405);res.end();return;}
+   if(u.pathname==='/api/session'){send({token,connected:!!producer,latest:latest?.meta.id,capabilities:['snapshot','memory','diff','pixel','oam','pause','step','checkpoint','trace','watch','annotations','helpers','overlays']});return;}
+   if(u.pathname==='/api/helpers'){send(q.has('id')?helpers.get(q.get('id'))??null:[...helpers.values()]);return;}
+   if(u.pathname==='/api/status'){send({connected:!!producer,captures,invalidPackets,latest:latest?.meta.id,history:history.size,pinned:pinned.size,receivedBytes,demandRequests,captureMode:'on-demand',maximumLiveHz:2});return;}
+   if(u.pathname==='/api/history'){send([...history.values()].map(s=>({id:s.meta.id,frame:s.meta.frame,cycle:s.meta.cycle})));return;}
+   if(u.pathname==='/api/live') {
+    demand();
+    if(!latest||q.get('after')===latest.meta.id) await new Promise(resolve=>{
+     let timer;const wake=()=>{clearTimeout(timer);waiting.delete(wake);resolve();};waiting.add(wake);timer=setTimeout(wake,1000);req.on('close',wake);
+    });
+    if(!latest||q.get('after')===latest.meta.id){res.writeHead(204);res.end();return;}
+    res.writeHead(200,{'Content-Type':'application/octet-stream'});res.end(latest.bytes);return;
+   }
+   if(u.pathname==='/api/annotations'){let notes=[];try{notes=JSON.parse(await readFile(path.join(dataDir,'annotations.json'),'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}send(notes);return;}
+   if(u.pathname.startsWith('/api/')) {
+    const s=snapshot(q.get('snapshot')||undefined,u.pathname==='/api/snapshot');
+    if(u.pathname==='/api/overlays'){const profile=q.has('profile')?helpers.get(q.get('profile')):[...helpers.values()].find(p=>p.romMd5.includes(s.meta.romMd5));if(!profile){send({snapshot:s.meta.id,matched:false,shapes:[],objects:[],warnings:['No matching game helper']});return;}send(evaluateHelper(s,profile,q.get('class')||'all'));return;}
+    if(u.pathname==='/api/snapshot'){send(jsonSnapshot(s));return;}
+    if(u.pathname==='/api/frame'){res.writeHead(200,{'Content-Type':'application/octet-stream'});res.end(s.bytes);return;}
+    if(u.pathname==='/api/pixel'){send(inspectPixel(s,q.get('view')||'composite',number(q.get('x'),0,0,511),number(q.get('y'),0,0,479)));return;}
+    if(u.pathname==='/api/sprites'){
+     const entries=Array.from({length:64},(_,i)=>sprite(s,i));
+     if(q.has('x')&&q.has('y')){const x=number(q.get('x'),0,0,255),y=number(q.get('y'),0,0,239);send({snapshot:s.meta.id,source:'end-of-frame diagnostic candidates, not captured pixel ownership',candidates:entries.map(e=>spritePixel(s,e,x,y)).filter(p=>p&&!p.transparent)});}
+     else send({snapshot:s.meta.id,entries});return;
+    }
+    if(u.pathname==='/api/events'){send({snapshot:s.meta.id,columns:['access','address','value','instructionPC','cycle','a','x','y','s','p'],accessBits:{read:1,write:2,execute:4},events:s.meta.events,dropped:s.meta.eventsDropped,stopGranularity:'frame-boundary'});return;}
+    if(u.pathname==='/api/memory'||u.pathname==='/api/diff') {
+     const space=q.get('space')||'ram';if(!['ram','chr','nametables','oam','palette'].includes(space))throw Error('Unknown memory space');
+     const bytes=s.buffers[space],start=number(q.get('start'),0,0,bytes.length-1),length=number(q.get('length'),Math.min(128,bytes.length-start),1,4096);if(start+length>bytes.length)throw Error('Range exceeds memory');
+     if(u.pathname==='/api/memory'){send({snapshot:s.meta.id,space,start,length,hex:Buffer.from(bytes.subarray(start,start+length)).toString('hex'),readSemantics:'direct copied storage; no CPU/PPU register reads'});return;}
+     const from=snapshot(q.get('from'));if(from.meta.romMd5!==s.meta.romMd5)throw Error('Cannot compare different ROMs');
+     send({snapshot:s.meta.id,from:from.meta.id,space,changes:Array.from({length},(_,i)=>i+start).filter(i=>bytes[i]!==from.buffers[space][i]).map(address=>({address,before:from.buffers[space][address],after:bytes[address]}))});return;
+    }
+    send({error:'Unknown endpoint'},404);return;
+   }
+   const routes={'/':'index.html','/app.mjs':'app.mjs','/style.css':'style.css','/inspection.mjs':'inspection.mjs','/helpers.mjs':'helpers.mjs'};
+   const name=routes[u.pathname];if(!name){res.writeHead(404);res.end();return;}
+   const content=await readFile(path.join(here,'public',name));res.writeHead(200,{'Content-Type':name.endsWith('.mjs')?'text/javascript':name.endsWith('.css')?'text/css':'text/html'});res.end(content);
+  }catch(e){if(!res.headersSent){res.writeHead(e.status||400,{'Content-Type':'application/json'});res.end(JSON.stringify({error:e.message}));}else res.end();}
+ });
+ server.requestTimeout=100000;
+ await new Promise((resolve,reject)=>{native.once('error',reject);native.listen(nativePort,'127.0.0.1',resolve);});
+ try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});}catch(e){native.close();throw e;}
+ return {url:origin,token,port,nativePort,command,close:async()=>{if(closed)return;closed=true;for(const wake of waiting)wake();producer?.destroy();server.closeAllConnections();await Promise.all([new Promise(r=>server.close(r)),new Promise(r=>native.close(r))]);}};
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
+ if(process.argv[2]&&process.platform==='win32'){
+  const count=Number(execFileSync('powershell.exe',['-NoProfile','-Command',"@(Get-Process -Name fceux,fceux64 -ErrorAction SilentlyContinue).Count"],{encoding:'utf8',windowsHide:true}).trim());
+  if(!Number.isFinite(count)||count!==0)throw Error('FCEUX already running; refusing a second instance.');
+ }
+ const port=Number(process.env.PORT||8775);if(!Number.isInteger(port)||port<1024||port>65534)throw Error('PORT must be 1024..65534');
+ const inspector=await startInspector({port});console.log(`NES REA inspector: ${inspector.url}`);
+ let child;
+ const rom=process.argv[2];if(rom){child=spawn(path.join(here,'bin','fceux64.exe'),['-bginput','1','-pause','1',path.resolve(rom)],{cwd:path.join(here,'bin'),env:{...process.env,FCEUX_REA_PORT:String(inspector.nativePort),FCEUX_REA_TOKEN:inspector.token},stdio:'ignore',windowsHide:false});child.on('error',e=>{console.error(e.message);shutdown();});child.on('exit',()=>{console.log('FCEUX closed.');shutdown();});}
+ let stopping=false;async function shutdown(){if(stopping)return;stopping=true;child?.kill();await inspector.close();}
+ process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);
+}

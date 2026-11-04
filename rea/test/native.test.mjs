@@ -1,0 +1,42 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {spawn,execFileSync} from 'node:child_process';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {startInspector} from '../server.mjs';
+import {decodePacket,inspectPixel,sprite,render} from '../public/inspection.mjs';
+const here=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const enabled=process.env.REA_NATIVE_TEST==='1';
+test('real FCEUX: coherent pixels, memory, checkpoints, replay, watchpoints, trace, HTTP security and durable evidence',{skip:!enabled,timeout:90000},async()=>{
+ if(process.platform==='win32')assert.equal(Number(execFileSync('powershell.exe',['-NoProfile','-Command',"@(Get-Process -Name fceux,fceux64 -ErrorAction SilentlyContinue).Count"],{encoding:'utf8',windowsHide:true}).trim()),0,'Close the current FCEUX before this test; a second instance is forbidden');
+ const server=await startInspector({port:18975,dataDir:path.join(here,'test-output','notes-'+Date.now())});
+ const child=spawn(path.join(here,'bin','fceux64.exe'),['-bginput','1',path.join(here,'test-output','inspection-test.nes')],{cwd:path.join(here,'bin'),env:{...process.env,FCEUX_REA_PORT:String(server.nativePort),FCEUX_REA_TOKEN:server.token,FCEUX_REA_STARTUP_LOG:path.join(here,'test-output','startup.log')},windowsHide:true,stdio:'ignore'});
+ let launchFailure='';child.on('error',e=>{launchFailure=e.message;});child.on('exit',code=>{launchFailure=`FCEUX exited with code ${code}`;});
+ const get=async route=>{const r=await fetch(server.url+route);assert.equal(r.status,200,await r.clone().text());return r.json();};
+ const control=async body=>{const r=await fetch(server.url+'/api/control',{method:'POST',headers:{'Content-Type':'application/json','X-REA-Token':server.token},body:JSON.stringify(body)});const value=await r.json();assert.equal(r.status,200,JSON.stringify(value));return value;};
+ const capture=async id=>{const r=await fetch(server.url+`/api/frame?snapshot=${id}`);assert.equal(r.status,200);return decodePacket(new Uint8Array(await r.arrayBuffer()));};
+ try{
+  let ready=false;const startupDeadline=Date.now()+60000;while(Date.now()<startupDeadline){if(launchFailure)break;const r=await fetch(server.url+'/api/live');if(r.ok&&r.status!==204){const s=decodePacket(new Uint8Array(await r.arrayBuffer()));if(s.meta.frame>=60){ready=true;break;}}await new Promise(r=>setTimeout(r,500));}assert.ok(ready,launchFailure||'Emulator must connect and execute the diagnostic');
+  let a=await control({op:'pause'});const first=await capture(a.snapshot);assert.equal(first.meta.paused,true);assert.equal(first.meta.rasterValid,true);assert.equal(first.meta.screenValid,true);assert.equal(Buffer.from(first.buffers.ram.subarray(32,36)).toString(),'REAN');
+  assert.deepEqual(first.meta.nametableAliases,[0,1,0,1]);
+  assert.equal(first.buffers.screen[0]&63,0x21);assert.equal(first.buffers.screen[80*256+80]&63,0x30);assert.equal(first.buffers.background[80*256+80]&63,0x21);assert.equal(first.buffers.sprites[80*256+80]&191,128|0x30);
+  assert.deepEqual(sprite(first,0),{index:0,oamAddress:0,x:80,y:80,tile:2,height:8,palette:0,behindBackground:false,flipX:false,flipY:false,source:'end-of-frame OAM reconstruction; hardware bounds, not gameplay hitboxes'});
+  const selected=await get(`/api/pixel?snapshot=${a.snapshot}&view=nametables&x=80&y=80`);assert.equal(selected.tile,1);assert.equal(selected.paletteAddress,1);
+  const memory=await get(`/api/memory?snapshot=${a.snapshot}&space=ram&start=32&length=4`);assert.equal(memory.hex,'5245414e');
+  const reject=await fetch(server.url+'/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"op":"run"}'});assert.equal(reject.status,403);
+  const origin=await fetch(server.url+'/api/snapshot',{headers:{Origin:'https://example.com'}});assert.equal(origin.status,403);
+  const range=await fetch(server.url+'/api/memory?space=ram&start=2047&length=2');assert.equal(range.status,400);
+  await control({op:'save',slot:0});
+  a=await control({op:'step',frames:3,pad0:129});const played=await capture(a.snapshot);assert.equal(played.buffers.ram[16],129);assert.equal(played.meta.frame-first.meta.frame,3);
+  const diff=await get(`/api/diff?from=${first.meta.id}&snapshot=${a.snapshot}&space=ram&start=0&length=32`);assert.ok(diff.changes.some(c=>c.address===16&&c.after===129));
+  const restored=await control({op:'load',slot:0});const restoreCapture=await capture(restored.snapshot);assert.equal(restoreCapture.meta.screenValid,false);assert.notEqual(restoreCapture.meta.id,first.meta.id);
+  a=await control({op:'step',frames:3,pad0:129});const replayed=await capture(a.snapshot);assert.deepEqual(replayed.buffers.ram,played.buffers.ram);assert.deepEqual(replayed.buffers.screen,played.buffers.screen);assert.equal(replayed.meta.cycle,played.meta.cycle);
+  await control({op:'trace',limit:128});a=await control({op:'step',frames:1});const trace=await get(`/api/events?snapshot=${a.snapshot}`);assert.equal(trace.events.length,128);assert.ok(trace.events.every(e=>e[0]===4));
+  await control({op:'watch',start:0,end:0,access:2});a=await control({op:'step',frames:5});const watched=await capture(a.snapshot);assert.ok(watched.meta.watchHit);assert.ok(watched.meta.events.some(e=>e[0]===2&&e[1]===0));assert.ok(a.message.includes('watch hit'));assert.ok(watched.meta.frame-replayed.meta.frame<=2,'Watch should stop at first frame boundary');
+  const note=await fetch(server.url+'/api/annotations',{method:'POST',headers:{'Content-Type':'application/json','X-REA-Token':server.token},body:JSON.stringify({snapshot:a.snapshot,kind:'observation',text:'Diagnostic NMI writes RAM $0000.'})});assert.equal(note.status,201);assert.equal((await get('/api/annotations')).length,1);
+  await mkdir(path.join(here,'test-output'),{recursive:true});
+  await writeFile(path.join(here,'test-output','verified-capture.json'),JSON.stringify({...first.meta,buffers:Object.fromEntries(Object.entries(first.buffers).map(([k,v])=>[k,Buffer.from(v).toString('hex')]))}));
+  const image=render(first,'composite');const rgb=Buffer.alloc(256*240*3);for(let i=0;i<256*240;i++)rgb.set(image.rgba.subarray(i*4,i*4+3),i*3);await writeFile(path.join(here,'test-output','composite.ppm'),Buffer.concat([Buffer.from('P6\n256 240\n255\n'),rgb]));
+ }finally{const exited=new Promise(resolve=>{if(child.exitCode!==null||child.signalCode!==null)resolve();else child.once('exit',resolve);});child.kill();await exited;await server.close();}
+});

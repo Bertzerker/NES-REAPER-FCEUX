@@ -1,0 +1,30 @@
+MEGA REAPER - FCEUX / NES REAPER - FCEUX
+
+FCEUX: GPL-2.0-or-later, with the upstream authors' copyrights retained.
+Upstream: https://github.com/TASEmulators/fceux
+Fork: https://github.com/Bertzerker/MEGA-REAPER-FCEUX
+Complete corresponding emulator/REA source is provided with the release.
+
+Lua 5.1.4: Copyright (C) 1994-2008 Lua.org, PUC-Rio. MIT license;
+see Lua-COPYRIGHT.txt. The Lua core is rebuilt from src/lua/src using the
+static MSVC runtime. The upstream lua51.dll compatibility shim is retained.
+Luaperks originates from https://github.com/TASVideos/tastools and is
+linked by the upstream FCEUX build; upstream notices are retained in source.
+
+7-Zip 19.00 x64 archive DLL: Copyright (c) 1999-2018 Igor Pavlov.
+LGPL-2.1-or-later and the unRAR restriction apply to the respective parts;
+some components are public domain / retain their separate source notices.
+See 7-Zip-License.txt, 7-Zip-LGPL.txt and 7-Zip-unRAR.txt. The corresponding
+official source archive 7z1900-src.7z accompanies this GitHub release:
+https://www.7-zip.org/a/7z1900-src.7z
+No changes are made to the bundled 7z_64.dll. The preserved older upstream
+7-Zip readme is historical; the shipped DLL's version is 19.00.
+
+Node.js: Copyright Node.js contributors. Distributed unmodified, with
+the full Node-LICENSE.txt containing Node and bundled dependency notices.
+release-manifest.json identifies the exact version and SHA-256 verified
+against the official Node-SHASUMS256.txt. Source for that exact version:
+https://github.com/nodejs/node (select the manifest's nodeVersion tag).
+
+Other upstream FCEUX linked components retain their notices and source
+under src/ in the corresponding source archive and repository.
