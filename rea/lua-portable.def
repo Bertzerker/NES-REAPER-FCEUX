@@ -1,0 +1,8 @@
+LIBRARY lua5.1
+EXPORTS
+    luaD_growstack
+    luaF_newproto
+    luaM_realloc_
+    luaM_toobig
+    luaS_newlstr
+    luaU_dump

@@ -6,7 +6,7 @@
   <PropertyGroup Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset Condition="'$(PlatformToolset)'==''">v145</PlatformToolset></PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <PropertyGroup><OutDir>$(MSBuildThisFileDirectory)bin\</OutDir><IntDir>$(MSBuildThisFileDirectory)obj\lua-portable\</IntDir><TargetName>lua5.1</TargetName></PropertyGroup>
-  <ItemDefinitionGroup><ClCompile><Optimization>MaxSpeed</Optimization><RuntimeLibrary>MultiThreaded</RuntimeLibrary><CompileAs>CompileAsC</CompileAs><PreprocessorDefinitions>LUA_BUILD_AS_DLL;_CRT_SECURE_NO_WARNINGS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions><MultiProcessorCompilation>false</MultiProcessorCompilation><WarningLevel>Level3</WarningLevel></ClCompile><Link><GenerateDebugInformation>false</GenerateDebugInformation></Link></ItemDefinitionGroup>
+  <ItemDefinitionGroup><ClCompile><Optimization>MaxSpeed</Optimization><RuntimeLibrary>MultiThreaded</RuntimeLibrary><CompileAs>CompileAsC</CompileAs><PreprocessorDefinitions>LUA_BUILD_AS_DLL;_CRT_SECURE_NO_WARNINGS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions><MultiProcessorCompilation>false</MultiProcessorCompilation><WarningLevel>Level3</WarningLevel></ClCompile><Link><GenerateDebugInformation>false</GenerateDebugInformation><ModuleDefinitionFile>$(MSBuildThisFileDirectory)lua-portable.def</ModuleDefinitionFile></Link></ItemDefinitionGroup>
   <ItemGroup><ClCompile Include="..\src\lua\src\*.c" Exclude="..\src\lua\src\lua.c;..\src\lua\src\luac.c;..\src\lua\src\print.c" /></ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
