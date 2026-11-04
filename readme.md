@@ -4,7 +4,7 @@
 
 ## Download NES REAPER - FCEUX for Windows
 
-Get **NES-REAPER-FCEUX-v0.1.0-win-x64.zip** from [GitHub Releases](https://github.com/Bertzerker/MEGA-REAPER-FCEUX/releases/latest). The portable Windows 10/11 x64 package includes the modified emulator, Node runtime, REA web interface, launcher, required DLLs and licenses. No compiler, Python or npm installation is needed to run it.
+Get **NES-REAPER-FCEUX-v0.2.0-win-x64.zip** from [GitHub Releases](https://github.com/Bertzerker/MEGA-REAPER-FCEUX/releases/latest). The portable Windows 10/11 x64 package includes the modified emulator, Node runtime, REA web interface, launcher, required DLLs and licenses. No compiler, Python or npm installation is needed to run it.
 
 1. Extract the entire ZIP to a writable folder.
 2. Double-click **Launch-NES-REAPER.cmd** and select your own ROM, or drag a ROM onto the launcher.
@@ -18,10 +18,11 @@ Only one FCEUX instance is allowed. Close FCEUX to stop the local inspector. No 
 - One NES execution with synchronized composite, background and sprite captures; diagnostic nametables, CHR patterns, palettes, OAM and memory.
 - Shared local HTTP API for human and AI inspection, immutable snapshot IDs, memory differences and pixel provenance.
 - Pause, bounded gamepad stepping, checkpoint replay, instruction traces, memory watches and local evidence notes.
+- Movie play/pause/frame step and speed controls, with frame comments that preserve PNG and copied memory evidence. Combine Markdown, JSON blocks and Mermaid diagrams; export annotated FM2 copies with original inputs preserved.
 - Editable per-ROM / object-class collision definitions and a composite overlay. The Kid Dracula Japan profile includes recovered terrain probes and replay-verified normal enemy contact; special forms and bosses need further validation.
 - Demand-driven capture, normal scheduling and bounded buffers. Frozen or hidden inspection stops live polling.
 
-[Specification](rea/SPEC.md) · [Run, build and API guide](rea/README.md) · [Game helpers](rea/HELPERS.md) · [Validation](rea/VALIDATION.md) · [Original upstream README](documentation/FCEUX-UPSTREAM.md) · [Upstream SDL build guide](documentation/README-SDL-upstream.txt)
+[Specification](rea/SPEC.md) · [Run, build and API guide](rea/README.md) · [Movies and comments](rea/MOVIES.md) · [Game helpers](rea/HELPERS.md) · [Validation](rea/VALIDATION.md) · [Original upstream README](documentation/FCEUX-UPSTREAM.md) · [Upstream SDL build guide](documentation/README-SDL-upstream.txt)
 
 ## Build and package
 
@@ -30,7 +31,7 @@ From a Visual Studio C++ build-tools environment with a Windows SDK and Node.js:
 ```powershell
 ./rea/Build-REA.ps1
 ./rea/Start-REA.ps1 -Rom 'C:/path/to/game.nes'
-./rea/Package-Windows.ps1 -Version 0.1.0
+./rea/Package-Windows.ps1 -Version 0.2.0
 ```
 
 The build defaults to MSVC v145; pass `-Toolset v143` and `-MSBuild` as appropriate. Worker counts are capped. The packager verifies the local Windows x64 Node executable against its official checksum and includes its license. It copies only the release allowlist and tracked upstream resources, never the working saves/configuration directory. See [release packaging](rea/RELEASING.md).

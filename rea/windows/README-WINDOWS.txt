@@ -41,9 +41,18 @@ player/enemy contact windows. Stage-0 type-$06 contact was replay verified.
 Other forms and special bosses need further validation. OAM bounds are separate
 hardware rectangles. See rea/HELPERS.md and rea/research/KID-DRACULA.md.
 
+MOVIES AND FRAME COMMENTS
+Open an FM2 with the matching ROM, then use Play, Pause, Movie frame,
+Restart movie and 25-200% speed. Pause & comment current frame saves the
+render and copied memory with the movie frame/revision. Use Markdown,
+JSON and Mermaid, preview, edit and export. Review snapshot leaves the
+movie playhead unchanged. Annotated FM2 copies preserve original inputs;
+TAS editing/recording remains in native FCEUX. See rea/MOVIES.md.
+
 SOURCE AND LICENSE
 FCEUX and the REA modifications: GPL-2.0-or-later; see COPYING.
 Complete corresponding source is available in the same GitHub release as
 MEGA-REAPER-FCEUX-v0.1.0-source.zip and at the release tag in the repository.
 Build instructions: rea/README.md and rea/Build-REA.ps1.
 Lua, 7-Zip and Node.js retain their separate notices under licenses/.
+Offline comment renderer notices: rea/public/vendor/LICENSES.txt.

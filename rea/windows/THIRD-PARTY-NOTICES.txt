@@ -28,3 +28,10 @@ https://github.com/nodejs/node (select the manifest's nodeVersion tag).
 
 Other upstream FCEUX linked components retain their notices and source
 under src/ in the corresponding source archive and repository.
+
+Offline Markdown, JSON and Mermaid comment previews include Marked,
+DOMPurify, Mermaid and their bundled dependencies. Complete dependency
+license notices are in rea/public/vendor/LICENSES.txt. Exact dependency
+versions and build sources are in rea/vendor-build/package-lock.json and
+rea/Build-Renderers.mjs in the corresponding source archive. These browser
+bundles require no runtime CDN or package installation.

@@ -6,6 +6,8 @@ A local GPL-2.0-or-later FCEUX modification with synchronized inspection for hum
 
 See [VALIDATION.md](VALIDATION.md) for completed checks and their limits.
 
+The movie toolbar supports play, pause, frame step, restart and 25–200% speed. **Pause & comment current frame** saves a composite PNG and copied memory snapshot anchored to the movie's frame and input revision. Comments support Markdown with JSON and Mermaid blocks, previews, editing, review and exports, including an annotated FM2 copy with unchanged inputs. See [MOVIES.md](MOVIES.md) for use, provenance and API contracts.
+
 ## Run on Windows
 
 From the `fceux` directory:
@@ -36,7 +38,7 @@ Generate the original test ROM with the verified installed Python interpreter, t
 & 'C:/Users/Chris/AppData/Local/Python/bin/python.exe' rea/make_test_rom.py
 node --test rea/test/*.test.mjs
 $env:REA_NATIVE_TEST='1'
-node --test rea/test/native.test.mjs
+node --test --test-concurrency=1 rea/test/native.test.mjs rea/test/movie-native.test.mjs
 Remove-Item Env:REA_NATIVE_TEST
 ```
 

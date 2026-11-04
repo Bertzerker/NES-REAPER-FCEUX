@@ -115,10 +115,20 @@ GET operations are read-only. Explicit snapshot requests pin their result in a 1
 | trace_execution | POST op trace, limit 1–2048; arms an instruction event budget; run/step separately |
 | watch_memory | POST op watch, CPU start/end $0000–$FFFF, access bits read=1/write=2/execute=4; access=0 disables |
 | annotations | GET/POST /api/annotations; kind observation or hypothesis, text, explicit snapshot; persists ROM identity and SHA-256 capture evidence |
+| movie playback | GET /api/playback; POST control movie-play / movie-step / movie-restart / speed; recorded input stays authoritative |
+| frame comments | POST /api/annotations/capture; immutable render/memory/movie anchor, Markdown/JSON/Mermaid, content edits and exports; see MOVIES.md |
 
 Controls are serialized, except that Pause may interrupt a bounded step, and require X-REA-Token. /api/session supplies the local token to same-origin clients. Both ports bind 127.0.0.1; HTTP Host/Origin are checked and no cross-origin access is enabled. Native producer connection requires the launch token. There are no arbitrary file path, memory-write, shell execution or ROM-upload endpoints.
 
 An AI should first pin a snapshot and reuse its ID for all related reads. A series of requests without explicit IDs follows live time and is not a coherent multi-query experiment.
+
+## Movie and TAS frame evidence
+
+The browser provides movie play/pause, recorded-input stepping, restart and throttle speed selection from 25% to 200%. Loading a supported local FM2 creates a read-only working copy and checks the current ROM checksum. Native TAS Editor playback uses its existing input stream; browser execution controls refuse recording modes. Scripted pad injection and browser checkpoint restore remain unavailable while a movie is active.
+
+Current-frame comment capture pauses, computes the movie input digest and saves a valid composite PNG plus every copied inspection memory/render domain. Capturing displayed evidence instead leaves the native playhead unchanged. Comments bind ROM, immutable snapshot, frame, zero-based consumed input index, movie GUID and input revision. Frame N follows FM2 input N−1. Reviewing a stored capture changes inspection only. Notes can combine Markdown prose, JSON code blocks and Mermaid diagrams; rendering is explicit, lazy and local. Rich content is sanitized and diagram size/count is bounded.
+
+Verified saved FM2 copies receive frame-specific REA header comments without changing original input bytes. Verification compares on-disk identity/revision/length and canonical inputs against the captured in-memory movie; export also checks the unchanged source SHA-256. Editable TAS and recording captures keep sidecar evidence. Full memory evidence and PNGs are separate files linked by hashes. See [MOVIES.md](MOVIES.md) for precise contracts and supported devices. Visible dashboards share lightweight playback-state polling at 1 Hz, including while paused so native TAS controls stay synchronized. This does not copy graphics/memory; frozen inspection makes no live capture demands.
 
 ## Deterministic experiments
 

@@ -61,3 +61,4 @@ fceux-net-server
 /build-rea.log
 /dist/
 /rea/vendor-cache/
+/rea/vendor-build/node_modules/

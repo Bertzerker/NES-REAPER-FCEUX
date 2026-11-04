@@ -578,6 +578,20 @@ void DoPriority()
 	}
 }
 
+// REA changes wall-clock playback speed without touching recorded input.
+extern int32 fps_scale_unpaused;
+void REA_SetWindowsSpeed(unsigned percent)
+{
+ FCEUD_TurboOff();
+ eoptions &= ~EO_NOTHROTTLE;
+ fps_scale = fps_scale_unpaused = (256 * percent) / 100;
+ RefreshThrottleFPS();
+}
+unsigned REA_GetWindowsSpeed()
+{
+ return (fps_scale_unpaused * 100 + 128) / 256;
+}
+
 int DriverInitialize()
 {
 	REA_Startup("initializing sound");

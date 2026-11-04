@@ -1,5 +1,15 @@
 # Local validation
 
+## Movie controls and rich frame comments (v0.2.0)
+
+The rebuilt native executable passed all **15 regression tests** sequentially, keeping one FCEUX process at a time: three durable-evidence/PNG/FM2 tests, five game-helper tests, four renderer/schema tests, native diagnostics, movie playback/replay and transport integration. The movie test uses an original generated NROM and 400-frame FM2. At frame 95 it verified consumed input index 94, canonical native/file input digest agreement and recorded Right input in RAM; browser gamepad injection remained rejected. The annotated FM2 preserved every original input byte and replayed with identical RAM, pixels and CPU cycle. The source file stayed unchanged. Pause/play, 50%/75%/100% speed selection, invalid-speed rejection, read-only mode, lightweight status without render capture and stopping exactly at frame 400 passed. Recording guards compile against the native TAS Editor; complete FM3 editing/branch workflows have not been tested.
+
+In-app browser checks passed movie loading, speed selection, play/pause/frame step, current-frame capture, Markdown with JSON and a locally rendered Mermaid diagram, sanitization of script/image/unsafe-link HTML, invalid JSON rejection with draft retention, comment save, JSON+memory and FM2 downloads, and persistence after reload. Reviewing saved frame 24 held graphics/memory there while the native playhead remained at frame 25. Downloaded JSON contained the matching movie frame and 2,048 RAM bytes. No browser console errors or warnings were observed. Evidence: ignored `test-output/movie-validation.json`, `movie-browser-checks.json` and `movie-comments-browser.png`.
+
+The visible dashboard shares a small native playback-status request at most once per second so changes made through the native TAS interface appear on the page. This metadata request performs no render/memory export. Frozen/hidden views retain the existing zero live-capture-demand behavior; hidden views skip playback-status requests. Mermaid is loaded/rendered only for explicit previews or opened saved comments.
+
+The package smoke test additionally checks the shipped comment modules, offline preview assets, durable PNG/memory capture and playback status, alongside the existing launcher, runtime, native diagnostics, checkpoint replay, idle capture and duplicate-instance checks. Exact package source/file hashes are recorded in its release manifest.
+
 Validated on Windows x64 on 2026-11-04 with Visual Studio 18 / MSVC v145 and Node.js. Upstream base: `8cc753da0b8e6924089ed76ce6a2a93997492264`.
 
 - **Native build:** `rea/Build-REA.ps1` completed with zero errors. One upstream DirectInput library section-attribute linker warning remains. Output is `rea/bin/fceux64.exe`, accompanied by the upstream 7-Zip and paired Lua DLLs.
