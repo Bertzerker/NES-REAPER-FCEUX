@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='0.3.1',[string]$NodeExe)
+param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='0.4.0',[string]$NodeExe)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 if((& git -C $root status --porcelain --untracked-files=normal)){throw 'Commit source changes before packaging so the source manifest identifies the complete release.'}

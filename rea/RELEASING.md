@@ -11,7 +11,7 @@ node --test rea/test/helpers.test.mjs rea/test/inspection.test.mjs rea/test/evid
 $env:REA_NATIVE_TEST='1'
 node --test --test-concurrency=1 rea/test/native.test.mjs rea/test/movie-native.test.mjs rea/test/protocol.test.mjs
 Remove-Item Env:REA_NATIVE_TEST
-./rea/Package-Windows.ps1 -Version 0.3.1
+./rea/Package-Windows.ps1 -Version 0.4.0
 ```
 
 The portable packager pins the installed Windows x64 Node version, verifies its executable against the official `nodejs.org/dist/VERSION/SHASUMS256.txt`, and includes the full matching license. It needs network access on the first packaging run for those small files; they are cached in ignored `rea/vendor-cache/`. It creates a fresh staging directory and refuses to overwrite an existing versioned archive.

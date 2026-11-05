@@ -41,6 +41,13 @@ player/enemy contact windows. Stage-0 type-$06 contact was replay verified.
 Other forms and special bosses need further validation. OAM bounds are separate
 hardware rectangles. See rea/HELPERS.md and rea/research/KID-DRACULA.md.
 
+SPRITE AND TILE CATALOG
+Name a sprite group or tile, add animation variants, isolate matches and
+follow one occurrence. Use Attach to comment to save the pinned frame and
+catalog revision during live play or FM2 replay. The old PPU can identify
+winning sprite-layer pixels. Nametable and CHR picks use copied memory.
+See rea/CATALOG.md for steps and evidence limits.
+
 MOVIES AND FRAME COMMENTS
 Open an FM2 with the matching ROM, then use Play, Pause, Movie frame,
 Restart movie and 25-200% speed. Pause & capture current frame saves the
