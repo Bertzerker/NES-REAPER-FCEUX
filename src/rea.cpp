@@ -31,6 +31,8 @@ void REA_Startup(const char* stage) {
  if(log) { FILE* f=fopen(log,"a"); if(f) { fprintf(f,"%s\n",stage); fclose(f); } }
 }
 
+bool REA_CatalogEnabled = false;
+
 #ifdef _WIN32
 extern uint8 PALRAM[32], SPRAM[256], joy[4], XOffset;
 extern uint32 TempAddr, RefreshAddr;
@@ -48,6 +50,12 @@ std::deque<std::vector<char> > output;
 size_t sent = 0;
 uint8 bg[256*240], sp[256*240], masks[240], screen[256*240], emphasis[256*240];
 bool screenValid = false;
+constexpr unsigned spriteRowBytes = 10, spriteRowLimit = 8;
+constexpr unsigned spriteLineBytes = 1 + spriteRowBytes * spriteRowLimit;
+uint8 spriteRows[240 * spriteLineBytes], fetchedRows[spriteRowBytes * spriteRowLimit];
+int fetchedLine = -1;
+unsigned fetchedCount = 0, spriteRowsDropped = 0, continuity = 0;
+bool spriteRowsValid = false;
 std::unique_ptr<EMUFILE_MEMORY> checkpoints[16];
 unsigned checkpointFrames[16]={};
 bool checkpointNewPpu[16]={},checkpointPal[16]={};
@@ -68,6 +76,8 @@ std::string captureId;
 void disconnect() {
  if(sock != INVALID_SOCKET) closesocket(sock);
  sock = INVALID_SOCKET; connecting = false; output.clear(); sent = 0; input.clear();
+ REA_CatalogEnabled=false;
+ spriteRowsValid=false;
  // Losing the controlling client must not leave injected inputs held.
  if(stepLeft) { EmulationPaused = 1; stepLeft = 0; stepId = 0; }
  retryAt = GetTickCount()+1000;
@@ -118,6 +128,7 @@ std::string playbackState() {
  out << "{\"paused\":" << (EmulationPaused?"true":"false") << ",\"speedPercent\":" << REA_GetWindowsSpeed()
  << ",\"frame\":" << FCEUMOV_GetFrame() << ",\"session\":" << jsonString(session) << ",\"emulatedFrames\":" << frames
  << ",\"region\":" << jsonString(PAL?"PAL":"NTSC") << ",\"ppuCore\":" << jsonString(newppu?"new":"old")
+ << ",\"catalogObserver\":" << (REA_CatalogEnabled?"true":"false")
  << ",\"romName\":" << jsonString(romName)
  << ",\"checkpoints\":[";
  for(unsigned i=0;i<16;i++){if(i)out<<',';out<<"{\"slot\":"<<i<<",\"occupied\":"<<(checkpoints[i]?"true":"false")<<",\"frame\":"<<checkpointFrames[i]<<",\"compatible\":"<<(checkpoints[i]&&checkpointNewPpu[i]==bool(newppu)&&checkpointPal[i]==bool(PAL)?"true":"false")<<",\"ppuCore\":"<<jsonString(checkpointNewPpu[i]?"new":"old")<<",\"region\":"<<jsonString(checkpointPal[i]?"PAL":"NTSC")<<'}';}
@@ -192,6 +203,7 @@ void capture() {
  j << "{\"kind\":\"snapshot\",\"version\":1,\"id\":\"" << captureId << "\",\"session\":" << jsonString(session) << ",\"frame\":" << FCEUMOV_GetFrame()
  << ",\"capturedAt\":" << ((ticks.QuadPart-116444736000000000ULL)/10000) << ",\"cycle\":" << (timestampbase+timestamp) << ",\"region\":\"" << (PAL?"PAL":"NTSC") << "\",\"paused\":" << (EmulationPaused?"true":"false")
  << ",\"playback\":" << playbackState()
+ << ",\"continuity\":" << continuity << ",\"spriteRowsDropped\":" << spriteRowsDropped
  << ",\"screenValid\":" << (screenValid?"true":"false") << ",\"rasterValid\":" << (!newppu && rasterLines==240?"true":"false") << ",\"ppuCore\":\"" << (newppu?"new":"old") << "\",\"capturePoint\":\"after-ppu-before-osd\""
  << ",\"cpu\":{\"pc\":"<<X.PC<<",\"a\":"<<unsigned(X.A)<<",\"x\":"<<unsigned(X.X)<<",\"y\":"<<unsigned(X.Y)<<",\"s\":"<<unsigned(X.S)<<",\"p\":"<<unsigned(X.P)<<"}"
  << ",\"ppu\":{\"ctrl\":"<<unsigned(PPU[0])<<",\"mask\":"<<unsigned(PPU[1])<<",\"status\":"<<unsigned(PPU[2])<<",\"oamAddress\":"<<unsigned(PPU[3])<<",\"v\":"<<RefreshAddr<<",\"t\":"<<TempAddr<<",\"fineX\":"<<unsigned(XOffset)<<"}"
@@ -201,7 +213,9 @@ void capture() {
  for(int i=0;i<4;i++) { if(i) j<<','; int alias=i; for(int k=0;k<i;k++) if(vnapage[i]==vnapage[k]) { alias=k; break; } j<<alias; }
  j << "],\"execution\":{\"requestedFrames\":"<<stepRequested<<",\"completedFrames\":"<<stepExecuted<<",\"stopReason\":"<<jsonString(stopReason)<<",\"granularity\":\"completed-frame-boundary\"},\"traceLimit\":"<<traceLimit<<",\"traceRemaining\":"<<traceLeft<<",\"eventsDropped\":"<<droppedEvents<<",\"watchHit\":"<<(watchHit?"true":"false")<<",\"events\":[";
  for(size_t i=0;i<events.size();i++) { auto&e=events[i]; if(i) j<<','; j<<'['<<e.type<<','<<e.address<<','<<e.value<<','<<e.pc<<','<<e.cycle<<','<<e.a<<','<<e.x<<','<<e.y<<','<<e.s<<','<<e.p<<']'; }
- j << "],\"buffers\":[[\"screen\",61440],[\"emphasis\",61440],[\"background\",61440],[\"sprites\",61440],[\"lineMasks\",240],[\"rgbPalette\",1536],[\"ram\",2048],[\"chr\",8192],[\"nametables\",4096],[\"oam\",256],[\"palette\",32]]}";
+ j << "],\"buffers\":[[\"screen\",61440],[\"emphasis\",61440],[\"background\",61440],[\"sprites\",61440],[\"lineMasks\",240],[\"rgbPalette\",1536],[\"ram\",2048],[\"chr\",8192],[\"nametables\",4096],[\"oam\",256],[\"palette\",32]";
+ if(spriteRowsValid) j << ",[\"spriteRows\"," << sizeof(spriteRows) << ']';
+ j << "]}";
  std::vector<char> bytes; bytes.reserve(270000);
  auto add=[&](const void* p,size_t n) { const char* c=(const char*)p; bytes.insert(bytes.end(),c,c+n); };
  add(screen,sizeof(screen)); add(emphasis,sizeof(emphasis)); add(bg,sizeof(bg)); add(sp,sizeof(sp)); add(masks,sizeof(masks));
@@ -209,6 +223,7 @@ void capture() {
  for(unsigned a=0;a<8192;a++) bytes.push_back(VPage[a>>10]?VPage[a>>10][a]:0);
  for(unsigned a=0;a<4096;a++) bytes.push_back(vnapage[a>>10]?vnapage[a>>10][a&1023]:0);
  add(SPRAM,256); add(PALRAM,32);
+ if(spriteRowsValid) add(spriteRows,sizeof(spriteRows));
  queue(j.str(),bytes); forceCapture=false;
 }
 void command(const std::string& line) {
@@ -220,7 +235,8 @@ void command(const std::string& line) {
   if(encoded.empty() || encoded.size()>8192 || encoded.size()%2 || encoded.find_first_not_of("0123456789abcdef")!=std::string::npos || stepLeft || FCEUMOV_Mode(MOVIEMODE_RECORD|MOVIEMODE_TASEDITOR)) {reply(id,false,"finish recording or close TAS Editor before loading a movie");return;}
   for(size_t i=0;i<encoded.size();i+=2) filename+=char(strtoul(encoded.substr(i,2).c_str(),nullptr,16));
   if(filename.find('\0')!=std::string::npos) {reply(id,false,"invalid movie path");return;}
-  bool loaded=FCEUI_LoadMovie(filename.c_str(),true,0);EmulationPaused=1;screenValid=false;rasterLines=0;
+  bool loaded=FCEUI_LoadMovie(filename.c_str(),true,0);EmulationPaused=1;REA_Discontinuity();
+  if(loaded) digestMovieInputs();
   capture();reply(id,loaded,"movie loaded read-only; advance one frame for rendered evidence");return;
  }
  in>>a>>b>>c;
@@ -234,8 +250,18 @@ void command(const std::string& line) {
  else if(op=="movie-stop" && FCEUMOV_Mode(MOVIEMODE_PLAY|MOVIEMODE_FINISHED)) {EmulationPaused=1;FCEUI_StopMovie();moviePlaybackOwned=false;inputDigest.clear();}
  else if(op=="run") {moviePlaybackOwned=FCEUMOV_Mode(MOVIEMODE_PLAY);EmulationPaused=0;}
  else if(op=="speed" && a>=25 && a<=200 && a%25==0) REA_SetWindowsSpeed(a);
+ else if(op=="catalog-observe" && a<=1) {
+  if(a && newppu) {reply(id,false,"Admitted sprite observation requires the old PPU");return;}
+  if(REA_CatalogEnabled!=bool(a)) {
+   REA_CatalogEnabled=bool(a);
+   spriteRowsValid=false;
+   spriteRowsDropped=0;
+   fetchedLine=-1;
+  }
+  message=a?"Sprite observation enabled; samples arrive after a rendered frame":"Sprite observation disabled";
+ }
  else if(op=="movie-play" && (FCEUMOV_Mode(MOVIEMODE_TASEDITOR) || (FCEUMOV_Mode(MOVIEMODE_PLAY) && FCEUMOV_GetFrame()<FCEUI_GetMovieLength()))) {moviePlaybackOwned=true;EmulationPaused=0;}
- else if(op=="movie-restart" && FCEUMOV_Mode(MOVIEMODE_PLAY|MOVIEMODE_FINISHED)) {FCEUI_MoviePlayFromBeginning();EmulationPaused=1;screenValid=false;rasterLines=0;}
+ else if(op=="movie-restart" && FCEUMOV_Mode(MOVIEMODE_PLAY|MOVIEMODE_FINISHED)) {FCEUI_MoviePlayFromBeginning();EmulationPaused=1;REA_Discontinuity();digestMovieInputs();}
  else if(op=="movie-step" && a>=1 && a<=3600 && (FCEUMOV_Mode(MOVIEMODE_TASEDITOR) || (FCEUMOV_Mode(MOVIEMODE_PLAY) && FCEUMOV_GetFrame()<FCEUI_GetMovieLength()))) {stepRequested=a;stepExecuted=0;stopReason="executing";stepLeft=FCEUMOV_Mode(MOVIEMODE_PLAY)?std::min(a,unsigned(FCEUI_GetMovieLength()-FCEUMOV_GetFrame())):a;stepId=id;injectStepInput=false;EmulationPaused=0;return;}
  else if(op=="step" && a>=1 && a<=3600 && b<=255 && c<=255 && !FCEUMOV_Mode(MOVIEMODE_PLAY|MOVIEMODE_RECORD|MOVIEMODE_TASEDITOR) && joyports[0].type==SI_GAMEPAD && (joyports[1].type==SI_GAMEPAD || joyports[1].type==SI_NONE)) {
   stepRequested=a;stepExecuted=0;stopReason="executing";stepLeft=a; stepId=id; pad0=b; pad1=c; injectStepInput=true; EmulationPaused=0; return;
@@ -274,6 +300,10 @@ void REA_Poll() {
 void REA_BeginFrame() {
  if(!enabled) return;
  rasterLines=0; memset(bg,0,sizeof(bg)); memset(sp,0,sizeof(sp));
+ if(REA_CatalogEnabled) {
+  memset(spriteRows,0,sizeof(spriteRows));
+  spriteRowsDropped=0;
+ }
 }
 void REA_Input() {
  if(stepLeft && injectStepInput) { joy[0]=uint8(pad0); joy[1]=uint8(pad1); joy[2]=joy[3]=0; }
@@ -283,11 +313,34 @@ void REA_RasterLine(int y,const uint8* background,const uint8* sprites,bool vali
  if(!enabled || y<0 || y>=240) return;
  memcpy(bg+y*256,background,256); masks[y]=mask;
  if(valid && (mask&16)) for(int x=(mask&4)?0:8;x<256;x++) { uint8 v=sprites[x]; if(!(v&128)) sp[y*256+x]=(v&63)|128; }
+ if(REA_CatalogEnabled && valid && (mask&16)) {
+  uint8* line=spriteRows+y*spriteLineBytes;
+  if(fetchedLine==y && fetchedCount<=spriteRowLimit) {
+   line[0]=uint8(fetchedCount);
+   memcpy(line+1,fetchedRows,fetchedCount*spriteRowBytes);
+  } else {
+   line[0]=255;
+   spriteRowsDropped+=fetchedLine==y ? fetchedCount : 1;
+  }
+ }
  ++rasterLines;
+}
+void REA_SpriteFetch(unsigned index,unsigned slot,unsigned x,unsigned y,unsigned height,
+                     unsigned attributes,unsigned tile,unsigned address,uint8 low,uint8 high) {
+ if(index>=spriteRowLimit) return;
+ uint8* row=fetchedRows+index*spriteRowBytes;
+ row[0]=uint8(slot); row[1]=uint8(x); row[2]=uint8(y); row[3]=uint8(height);
+ row[4]=uint8(attributes); row[5]=uint8(tile); row[6]=uint8(address);
+ row[7]=uint8(address>>8); row[8]=low; row[9]=high;
+}
+void REA_SpriteFetchLine(int y,unsigned count) {
+ fetchedLine=y;
+ fetchedCount=count;
 }
 void REA_EndFrame() {
  if(!enabled) return;
  memcpy(screen,XBuf,sizeof(screen)); memcpy(emphasis,XDBuf,sizeof(emphasis)); screenValid=true;
+ spriteRowsValid=REA_CatalogEnabled && !newppu && rasterLines==240;
  ++frames;
  bool stop=watchHit || traceFinished;
  const bool movieEnded=moviePlaybackOwned && FCEUMOV_Mode(MOVIEMODE_PLAY) && FCEUMOV_GetFrame()>=FCEUI_GetMovieLength();
@@ -301,12 +354,21 @@ void REA_EndFrame() {
  // Keep evidence until the next watch/trace command, but do not repeatedly pause resume.
  watchHit=false; traceFinished=false; flush();
 }
+void REA_Discontinuity() {
+ if(newppu) REA_CatalogEnabled=false;
+ ++continuity;
+ screenValid=false;
+ rasterLines=0;
+ spriteRowsValid=false;
+ fetchedLine=-1;
+ forceCapture=true;
+}
 void REA_Reset() {
  inputDigest.clear();moviePlaybackOwned=false;
  stepRequested=stepExecuted=0;stopReason="machine reset or ROM changed";
  memset(checkpointFrames,0,sizeof(checkpointFrames));
  ++epoch; for(auto& cp:checkpoints) cp.reset(); stepLeft=stepId=traceLeft=watchType=0; updateHooks();
- events.clear(); droppedEvents=0; rasterLines=0; screenValid=false; forceCapture=true;
+ events.clear(); droppedEvents=0; REA_Discontinuity();
 }
 #else
 void REA_Poll() {}
@@ -316,4 +378,7 @@ void REA_RasterLine(int,const uint8*,const uint8*,bool,uint8) {}
 void REA_Input() {}
 void REA_Opcode(uint8) {}
 void REA_Reset() {}
+void REA_Discontinuity() {}
+void REA_SpriteFetch(unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,uint8,uint8) {}
+void REA_SpriteFetchLine(int,unsigned) {}
 #endif

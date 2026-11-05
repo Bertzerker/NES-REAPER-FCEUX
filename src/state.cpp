@@ -31,6 +31,7 @@
 #include "file.h"
 #include "fds.h"
 #include "state.h"
+#include "rea.h"
 #include "movie.h"
 #include "ppu.h"
 #include "netplay.h"
@@ -676,6 +677,7 @@ bool FCEUSS_LoadFP(EMUFILE* is, ENUM_SSLOADPARAMS params)
 		bool ret = FCEUSS_LoadFP_old(is,params)!=0;
 		FCEU_state_loading_old_format = false;
 		if(!ret && backup) FCEUSS_LoadFP(&msBackupSavestate,SSLOADPARAM_NOBACKUP);
+		REA_Discontinuity();
 		return ret;
 	}
 
@@ -716,6 +718,7 @@ bool FCEUSS_LoadFP(EMUFILE* is, ENUM_SSLOADPARAMS params)
 	}
 
 	FCEUMOV_PreLoad();
+	REA_Discontinuity();
 
 	bool x = (ReadStateChunks(&memory_savestate, totalsize) != 0);
 

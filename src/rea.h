@@ -8,4 +8,9 @@ void REA_RasterLine(int y, const uint8* background, const uint8* sprites, bool s
 void REA_Input();
 void REA_Opcode(uint8 opcode);
 void REA_Reset();
+void REA_Discontinuity();
+extern bool REA_CatalogEnabled;
+void REA_SpriteFetch(unsigned index, unsigned slot, unsigned x, unsigned y, unsigned height,
+                     unsigned attributes, unsigned tile, unsigned address, uint8 low, uint8 high);
+void REA_SpriteFetchLine(int y, unsigned count);
 void REA_Startup(const char* stage);

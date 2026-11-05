@@ -1,5 +1,10 @@
 """Original NROM diagnostic. No external assembler or copyrighted ROM needed."""
+import argparse
 from pathlib import Path
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--catalog", action="store_true", help="build the sprite and tile tracking fixture")
+catalog = parser.parse_args().catalog
 
 code = bytearray()
 labels = {}
@@ -33,6 +38,11 @@ for address,value in [(0x20,ord('R')),(0x21,ord('E')),(0x22,ord('A')),(0x23,ord(
     emit(0xA9,value,0x85,address)
 for address,value in [(0x0200,79),(0x0201,2),(0x0202,0),(0x0203,80)]:
     emit(0xA9,value,0x8D,address&255,address>>8)
+if catalog:
+    emit(0xA9,80,0x85,0x40)  # LDA #80; STA $40 (anchor x)
+    for slot, x in ((1,88),(2,160),(3,168)):
+        for offset, value in enumerate((79,2,0,x)):
+            emit(0xA9,value,0x8D,slot*4+offset,0x02)
 # Initialize all nametables (vertical mirroring) with solid tile 1.
 emit(0xA9,0x20,0x8D,0x06,0x20,0xA9,0,0x8D,0x06,0x20,0xA0,8,0xA2,0,0xA9,1)
 label('fill'); emit(0x8D,0x07,0x20,0xE8); branch(0xD0,'fill'); emit(0x88); branch(0xD0,'fill')
@@ -49,9 +59,50 @@ label('nmi')
 emit(0x48,0x8A,0x48,0x98,0x48)  # preserve A X Y
 emit(0xE6,0,0xA9,1,0x8D,0x16,0x40,0xA9,0,0x8D,0x16,0x40,0x85,0x10,0xA2,8)
 label('buttons');emit(0xAD,0x16,0x40,0x4A,0x66,0x10,0xCA);branch(0xD0,'buttons')
+if catalog:
+    # Input bits follow the NES shift register (A, B, Select, Start, Up, Down, Left, Right).
+    emit(0xA5,0x10,0x29,0x80);branch(0xF0,'position');emit(0xE6,0x40)
+    label('position');emit(0xA5,0x40,0x8D,3,2,0x18,0x69,8,0x8D,7,2)
+    emit(0xA5,0x10,0x29,2);branch(0xF0,'far')
+    emit(0xA5,0x40,0x18,0x69,18);branch(0xD0,'second')
+    label('far');emit(0xA9,160)
+    label('second');emit(0x8D,11,2,0x18,0x69,8,0x8D,15,2)
+    # Up switches both groups to their second animation frame.
+    emit(0xA5,0x10,0x29,0x10);branch(0xF0,'tile2')
+    emit(0xA9,3);branch(0xD0,'tiles')
+    label('tile2');emit(0xA9,2)
+    label('tiles')
+    for offset in (1,5,9,13):
+        emit(0x8D,offset,2)
+    # Start reuses the first slot for an unrelated pattern.
+    emit(0xA5,0x10,0x29,8);branch(0xF0,'catalog_palette');emit(0xA9,4,0x8D,1,2)
+    label('catalog_palette');emit(0xA5,0x10,0x29,0x40);branch(0xF0,'small_palette')
+    emit(0xA9,0xC0);branch(0xD0,'store_palette')  # Left flips both axes in 8×16 mode.
+    label('small_palette');emit(0xA5,0x10,0x29,1)
+    label('store_palette')
+    for offset in (2,6,10,14):
+        emit(0x8D,offset,2)
+    # Select hides the first group; the second stays available.
+    emit(0xA5,0x10,0x29,4);branch(0xF0,'visible_group')
+    emit(0xA9,255);branch(0xD0,'group_y')
+    label('visible_group');emit(0xA9,79)
+    label('group_y');emit(0x8D,0,2,0x8D,4,2)
+    # Down changes the mapped sprite pattern table.
+    emit(0xA5,0x10,0x29,0x40);branch(0xF0,'small_sprites')
+    emit(0xA9,0xA0);branch(0xD0,'control')
+    label('small_sprites');emit(0xA5,0x10,0x29,0x20);branch(0xF0,'bank0')
+    emit(0xA9,0x88);branch(0xD0,'control')
+    label('bank0');emit(0xA9,0x80)
+    label('control');emit(0x8D,0,0x20)
+    emit(0xA9,0,0x8D,3,0x20,0xA9,2,0x8D,0x14,0x40)
+    emit(0xA9,0,0x8D,5,0x20,0x8D,5,0x20)
 emit(0x68,0xA8,0x68,0xAA,0x68,0x40)
 label('irq');emit(0x40)
-label('colors');emit(*([0x0F,0x21,0x16,0x30]*4+[0x0F,0x16,0x2A,0x30]*4))
+label('colors')
+colors = [0x0F,0x21,0x16,0x30]*4+[0x0F,0x16,0x2A,0x30]*4
+if catalog:
+    colors[20:24] = [0x0F,0x27,0x28,0x29]
+emit(*colors)
 for offset,target,relative in fixups:
     value=labels[target]
     if relative:
@@ -67,7 +118,13 @@ chr_data=bytearray(8192)
 chr_data[16:24]=bytes([0xFF]*8)  # tile 1: pattern value 1
 chr_data[32:40]=bytes([0xFF]*8)  # tile 2: pattern value 3
 chr_data[40:48]=bytes([0xFF]*8)
-output=Path(__file__).parent/'test-output'/'inspection-test.nes'
+if catalog:
+    chr_data[48:56] = bytes([0xFF]*8)
+    chr_data[56:64] = bytes([0x55,0xAA]*4)
+    chr_data[64:72] = bytes([0xF0]*8)
+    chr_data[4096+32:4096+40] = bytes([0xFF]*8)
+    chr_data[4096+48:4096+56] = bytes([0x33]*8)
+output=Path(__file__).parent/'test-output'/('catalog-test.nes' if catalog else 'inspection-test.nes')
 output.parent.mkdir(exist_ok=True)
 output.write_bytes(b'NES\x1a'+bytes([1,1,1,0])+bytes(8)+prg+chr_data)
 print(output)

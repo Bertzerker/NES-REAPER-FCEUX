@@ -21,8 +21,8 @@ $stage=Join-Path $dist ('staging-'+[guid]::NewGuid().ToString('N'));$package=Joi
 New-Item -ItemType Directory -Force (Join-Path $package 'runtime'),(Join-Path $package 'licenses'),(Join-Path $package 'rea/bin'),(Join-Path $package 'rea/public'),(Join-Path $package 'rea/helpers'),(Join-Path $package 'rea/research') | Out-Null
 function Copy-ReleaseFile([string]$from,[string]$to){Copy-Item -LiteralPath (Join-Path $root $from) -Destination (Join-Path $package $to)}
 foreach($name in @('fceux64.exe','lua51.dll','lua5.1.dll','7z_64.dll')){Copy-ReleaseFile "rea/bin/$name" "rea/bin/$name"}
-foreach($name in @('server.mjs','annotations.mjs','evidence.mjs','bundle.mjs','package.json','Start-REA.ps1','README.md','SPEC.md','HELPERS.md','MOVIES.md','WORKBENCH.md','VALIDATION.md','RELEASING.md')){Copy-ReleaseFile "rea/$name" "rea/$name"}
-foreach($name in @('app.mjs','workbench.mjs','comments.mjs','helpers.mjs','inspection.mjs','index.html','style.css')){Copy-ReleaseFile "rea/public/$name" "rea/public/$name"}
+foreach($name in @('server.mjs','catalog-store.mjs','annotations.mjs','evidence.mjs','bundle.mjs','package.json','Start-REA.ps1','README.md','SPEC.md','HELPERS.md','MOVIES.md','WORKBENCH.md','CATALOG.md','VALIDATION.md','RELEASING.md')){Copy-ReleaseFile "rea/$name" "rea/$name"}
+foreach($name in @('app.mjs','workbench.mjs','comments.mjs','catalog.mjs','catalog-ui.mjs','helpers.mjs','inspection.mjs','index.html','style.css')){Copy-ReleaseFile "rea/public/$name" "rea/public/$name"}
 New-Item -ItemType Directory -Force (Join-Path $package 'rea/public/vendor') | Out-Null
 foreach($name in @('markup.mjs','mermaid.mjs','LICENSES.txt')){Copy-ReleaseFile "rea/public/vendor/$name" "rea/public/vendor/$name"}
 foreach($item in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'helpers') -Filter '*.json' -File){Copy-Item -LiteralPath $item.FullName -Destination (Join-Path $package 'rea/helpers')}

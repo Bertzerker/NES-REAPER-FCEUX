@@ -6,11 +6,13 @@ export function decodePacket(bytes) {
  const n=v.getUint32(0,true); if(n>512000 || 4+n>bytes.length) throw Error('Bad header length');
  const meta=JSON.parse(new TextDecoder().decode(bytes.subarray(4,4+n))), buffers={}; let at=4+n;
  if(meta.kind==='snapshot') {
-  if(meta.version!==1 || !Array.isArray(meta.buffers) || meta.buffers.length!==Object.keys(sizes).length) throw Error('Unknown schema');
+  if(meta.version!==1 || !Array.isArray(meta.buffers) || meta.buffers.length>Object.keys(sizes).length+1) throw Error('Unknown schema');
   for(const [name,len] of meta.buffers) {
-   if(sizes[name]!==len || buffers[name] || at+len>bytes.length) throw Error('Invalid buffer');
+   const expected=name==='spriteRows'?19440:sizes[name];
+   if(expected!==len || buffers[name] || at+len>bytes.length) throw Error('Invalid buffer');
    buffers[name]=bytes.subarray(at,at+len); at+=len;
   }
+  if(Object.keys(sizes).some(name=>!buffers[name])) throw Error('Missing capture buffer');
  }
  if(at!==bytes.length) throw Error('Trailing bytes');
  return {meta,buffers,bytes};

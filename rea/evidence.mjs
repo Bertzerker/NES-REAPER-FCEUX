@@ -38,8 +38,13 @@ export function fm2InputDigest(bytes,h=fm2Header(bytes)){
  return {md5:digest.digest('hex'),frames};
 }
 export function annotateFM2(bytes,notes){
- const h=fm2Header(bytes),markers=notes.map(n=>'comment REA '+JSON.stringify({version:1,id:n.id,frame:n.frame,inputFrame:n.movie?.inputFrame??-1,format:n.format??'plain',text:n.text,evidenceSha256:n.evidenceSha256,imageSha256:n.imageSha256})+'\n').join('');
+ const h=fm2Header(bytes),markers=notes.map(n=>'comment REA '+JSON.stringify({version:1,id:n.id,frame:n.frame,inputFrame:n.movie?.inputFrame??-1,format:n.format??'plain',text:n.text,evidenceSha256:n.evidenceSha256,imageSha256:n.imageSha256,catalogAttachmentSha256:n.catalogAttachmentSha256})+'\n').join('');
  if(h.boundary+Buffer.byteLength(markers)>256*1024)throw Error('Annotated FM2 header exceeds 256 KiB; export comments separately as Markdown or JSON.');
  return Buffer.concat([bytes.subarray(0,h.boundary),Buffer.from(markers),bytes.subarray(h.boundary)]);
 }
-export function commentMarkdown(note){return `# Frame ${note.frame} — ${note.movie?.name||'NES inspection'}\n\nMovie GUID: ${note.movie?.guid||'none'}  \nRerecord revision: ${note.movie?.rerecordCount??'none'}  \nLast consumed FM2 input index: ${note.movie?.inputFrame??-1}  \nSnapshot: ${note.snapshot}  \nEvidence SHA-256: ${note.evidenceSha256}\n\n`+(note.format==='json'||note.format==='mermaid'?`\`\`\`${note.format}\n${note.text}\n\`\`\`\n`:note.text+'\n');}
+export function commentMarkdown(note){
+ const item=note.catalogAttachment;
+ const observation=item
+  ? `Catalog entry: ${item.entryId} · revision ${item.entryRevision} · catalog revision ${item.catalogRevision}  \nEvidence class: ${item.confidence}  \nBounds: (${item.match.x}, ${item.match.y}) ${item.match.width}×${item.match.height}  \nCatalog attachment SHA-256: ${note.catalogAttachmentSha256}\n\n`
+  : '';
+ return `# Frame ${note.frame} — ${note.movie?.name||'NES inspection'}\n\nMovie GUID: ${note.movie?.guid||'none'}  \nRerecord revision: ${note.movie?.rerecordCount??'none'}  \nLast consumed FM2 input index: ${note.movie?.inputFrame??-1}  \nSnapshot: ${note.snapshot}  \nEvidence SHA-256: ${note.evidenceSha256}\n\n`+observation+(note.format==='json'||note.format==='mermaid'?`\`\`\`${note.format}\n${note.text}\n\`\`\`\n`:note.text+'\n');}

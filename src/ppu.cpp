@@ -1481,6 +1481,8 @@ static void FetchSpriteData(void) {
 					dst.x = spr->x;
 					dst.atr = spr->atr;
 
+					if (REA_CatalogEnabled)
+						REA_SpriteFetch(ns, 63-n, dst.x, spr->y, H, dst.atr, spr->no, vadr, dst.ca[0], dst.ca[1]);
 					*(uint32*)&SPRBUF[ns << 2] = *(uint32*)&dst;
 				}
 
@@ -1538,6 +1540,8 @@ static void FetchSpriteData(void) {
 					dst.atr = spr->atr;
 
 
+					if (REA_CatalogEnabled)
+						REA_SpriteFetch(ns, 63-n, dst.x, spr->y, H, dst.atr, spr->no, vadr, dst.ca[0], dst.ca[1]);
 					*(uint32*)&SPRBUF[ns << 2] = *(uint32*)&dst;
 				}
 
@@ -1557,6 +1561,7 @@ static void FetchSpriteData(void) {
 		}
 	}
 	numsprites = ns;
+	if (REA_CatalogEnabled) REA_SpriteFetchLine(scanline+1, ns);
 	SpriteBlurp = sb;
 }
 

@@ -150,6 +150,7 @@ FCEUGI::~FCEUGI()
 
 void FCEU_TogglePPU(void) {
 	newppu ^= 1;
+	REA_Discontinuity();
 	if (newppu) {
 		FCEU_DispMessage("New PPU loaded", 0);
 		FCEUI_printf("New PPU loaded");
@@ -910,6 +911,7 @@ void FCEUI_CloseGame(void) {
 void ResetNES(void) {
 	FCEUMOV_AddCommand(FCEUNPCMD_RESET);
 	if (!GameInfo) return;
+	REA_Discontinuity();
 	GameInterface(GI_RESETM2);
 	FCEUSND_Reset();
 	FCEUPPU_Reset();
@@ -1007,6 +1009,7 @@ void hand(X6502 *X, int type, uint32 A) {
 void PowerNES(void) {
 	FCEUMOV_AddCommand(FCEUNPCMD_POWER);
 	if (!GameInfo) return;
+	REA_Discontinuity();
 
 	//reseed random, unless we're in a movie
 	extern int disableBatteryLoading;

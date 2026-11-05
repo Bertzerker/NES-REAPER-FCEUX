@@ -9,11 +9,13 @@ import {spawn,execFileSync} from 'node:child_process';
 import {decodePacket,sizes,views,inspectPixel,sprite,spritePixel} from './public/inspection.mjs';
 import {validateHelper,evaluateHelper} from './public/helpers.mjs';
 import {annotationStore} from './annotations.mjs';
-import {sha256,fm2Header,fm2InputDigest} from './evidence.mjs';
+import {catalogLimit, catalogStore} from './catalog-store.mjs';
+import {sha256,fm2Header,fm2InputDigest,fromJSON} from './evidence.mjs';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 export async function startInspector({port=8775,nativePort=port+1,token=randomBytes(32).toString('hex'),dataDir=path.join(here,'session'),helperDir=path.join(here,'helpers'),commandTimeout=90000}={}) {
  const notes=annotationStore(dataDir);
+ const catalogs=catalogStore(dataDir);
  let lastPlayback=null,lastStatusAt=0,statusPending=null,stateUnknown=false,lastCaptureAt=0,connectionEpoch=0;
  const helpers=new Map();
  for(const directory of [helperDir,path.join(dataDir,'helpers')]){let names=[];try{names=await readdir(directory);}catch(e){if(e.code!=='ENOENT')throw e;}if(names.length>128)throw Error('Too many helper profiles');for(const name of names.filter(n=>/^[-a-z0-9]+\.json$/.test(n))){const raw=await readFile(path.join(directory,name),'utf8');if(raw.length>60000)throw Error('Helper too large');const p=validateHelper(JSON.parse(raw));helpers.set(p.id,p);}}
@@ -53,6 +55,12 @@ export async function startInspector({port=8775,nativePort=port+1,token=randomBy
   const s=pinned.get(id)||history.get(id);if(!s){const e=Error('Snapshot missing or expired');e.status=404;throw e;}
   if(pin){pinned.set(id,s);trim(pinned,16);}return s;
  }
+ async function catalogCapture(body) {
+  if (typeof body.snapshot !== 'string' || !body.snapshot) throw Error('Select an exact capture.');
+  const selected = body.evidenceSha256 ? fromJSON(await notes.evidence(body.evidenceSha256)) : snapshot(body.snapshot,true);
+  if (selected.meta.id !== body.snapshot) throw Error('Selected capture does not match the archived evidence.');
+  return selected;
+ }
  const jsonSnapshot=s=>({...s.meta,buffers:Object.fromEntries(Object.entries(s.buffers).map(([k,v])=>[k,Buffer.from(v).toString('hex')]))});
  function command(op,a=0,b=0,c=0) {
   const rejected=message=>Object.assign(Error(message),{status:409});
@@ -76,7 +84,7 @@ export async function startInspector({port=8775,nativePort=port+1,token=randomBy
    const send=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
    if(req.method==='POST') {
     if(req.headers['x-rea-token']!==token){send({error:'Control token required'},403);return;}
-    let length=0;const chunks=[],limit=u.pathname==='/api/movie'?16*1024*1024:u.pathname.startsWith('/api/annotations')?65536:u.pathname==='/api/helpers'?60000:16384;
+    let length=0;const chunks=[],limit=u.pathname==='/api/movie'?16*1024*1024:u.pathname==='/api/catalog'?catalogLimit+4096:u.pathname.startsWith('/api/annotations')?65536:u.pathname==='/api/helpers'?60000:16384;
     for await(const chunk of req){length+=chunk.length;if(length>limit)throw Error('Request too large');chunks.push(chunk);}const raw=Buffer.concat(chunks);
     if(u.pathname==='/api/movie'){
      const header=fm2Header(raw);fm2InputDigest(raw,header);if(!latest||header.romMd5!==latest.meta.romMd5)throw Error('Movie ROM checksum does not match the loaded ROM.');
@@ -86,7 +94,17 @@ export async function startInspector({port=8775,nativePort=port+1,token=randomBy
      const result=await command('movie-open',Buffer.from(filename,'utf8').toString('hex'));if(result.snapshot)snapshot(result.snapshot,true);send(result,result.ok?200:409);return;
     }
     const body=JSON.parse(raw.toString('utf8')||'{}');
+    if(u.pathname==='/api/catalog'){
+     const selected=['create','append'].includes(body.op) ? await catalogCapture(body) : undefined;
+     send(await catalogs.update(body,selected),body.op==='create'?201:200);return;
+    }
     if(u.pathname==='/api/annotations/capture'){
+     if(body.catalog){
+      const selected=await catalogCapture(body);
+      const observation=await catalogs.observe(selected,body.catalog);
+      const anchor=body.evidenceSha256 ? await notes.info(body.evidenceSha256) : await notes.capture(selected);
+      send(await notes.attach(anchor,observation),201);return;
+     }
      if(body.evidenceSha256){await notes.evidence(body.evidenceSha256);send(await notes.info(body.evidenceSha256),201);return;}
      let s;if(body.snapshot)s=snapshot(body.snapshot,true);else{const result=await command('bookmark');if(!result.ok)throw Error(result.message);s=snapshot(result.snapshot,true);}
      send(await notes.capture(s),201);return;
@@ -101,6 +119,7 @@ export async function startInspector({port=8775,nativePort=port+1,token=randomBy
      if(op==='step'){a=number(body.frames,1,1,3600);b=number(body.pad0,0,0,255);c=number(body.pad1,0,0,255);}
      else if(op==='movie-step')a=number(body.frames,1,1,3600);
      else if(op==='speed'){a=number(body.percent,100,25,200);if(a%25)throw Error('Speed must be a multiple of 25%, between 25% and 200%.');}
+     else if(op==='catalog-observe'){if(typeof body.enabled!=='boolean')throw Error('Expected a sprite observation toggle.');a=Number(body.enabled);}
      else if(op==='save'||op==='load')a=number(body.slot,0,0,15);
      else if(op==='trace')a=number(body.limit,256,1,2048);
      else if(op==='watch'){a=number(body.start,0,0,65535);b=number(body.end,a,a,65535);c=number(body.access,2,0,7);}
@@ -114,7 +133,8 @@ export async function startInspector({port=8775,nativePort=port+1,token=randomBy
     send({error:'Unknown endpoint'},404);return;
    }
    if(req.method!=='GET'){res.writeHead(405);res.end();return;}
-   if(u.pathname==='/api/session'){send({token,connected:!!producer,connectionEpoch,latest:latest?.meta.id,lastCaptureAt,stateUnknown,pending:[...pending.values()].filter(p=>p.op!=='status').map(({op,request})=>({op,request})),playback:lastPlayback,capabilities:['snapshot','memory','diff','pixel','oam','pause','step','checkpoint','trace','watch','annotations','helpers','overlays','movie','speed','rich-comments','movie-stop','native-tools','evidence-bundle','comment-revisions'],limits:{liveHz:2,step:[1,3600],trace:[1,2048],watch:[0,65535],speeds:[25,50,75,100,125,150,175,200],checkpoints:16,checkpointLifetime:'native session memory',stopGranularity:'completed-frame-boundary'}});return;}
+   if(u.pathname==='/api/catalog'){send(await catalogs.read(q.get('rom')));return;}
+   if(u.pathname==='/api/session'){send({token,connected:!!producer,connectionEpoch,latest:latest?.meta.id,lastCaptureAt,stateUnknown,pending:[...pending.values()].filter(p=>p.op!=='status').map(({op,request})=>({op,request})),playback:lastPlayback,capabilities:['snapshot','memory','diff','pixel','oam','pause','step','checkpoint','trace','watch','annotations','helpers','overlays','movie','speed','rich-comments','movie-stop','native-tools','evidence-bundle','comment-revisions','sprite-tile-catalog'],limits:{liveHz:2,step:[1,3600],trace:[1,2048],watch:[0,65535],speeds:[25,50,75,100,125,150,175,200],checkpoints:16,checkpointLifetime:'native session memory',stopGranularity:'completed-frame-boundary'}});return;}
    if(u.pathname==='/api/playback'){
     if(producer&&!pending.size&&Date.now()-lastStatusAt>=1000&&!statusPending){lastStatusAt=Date.now();const captureVersion=captures;statusPending=command('status').then(r=>{if(r.state&&captureVersion===captures)lastPlayback=r.state;}).finally(()=>statusPending=null);}
     if(statusPending)await statusPending;send(lastPlayback??latest?.meta.playback??{paused:true,movie:{mode:'inactive'}});return;
@@ -133,8 +153,9 @@ export async function startInspector({port=8775,nativePort=port+1,token=randomBy
    if(u.pathname==='/api/annotations'){send(await notes.list());return;}
    const image=u.pathname.match(/^\/api\/evidence\/([a-f0-9]{64})\.png$/);if(image){const bytes=await notes.image(image[1]);res.writeHead(200,{'Content-Type':'image/png'});res.end(bytes);return;}
    const evidence=u.pathname.match(/^\/api\/evidence\/([a-f0-9]{64})\.json$/);if(evidence){send(await notes.evidence(evidence[1]));return;}
-   const item=u.pathname.match(/^\/api\/annotations\/([a-f0-9]{16})\/(snapshot|json|markdown|fm2|bundle)$/);
+   const item=u.pathname.match(/^\/api\/annotations\/([a-f0-9]{16})\/(snapshot|json|markdown|fm2|bundle|catalog)$/);
    if(item){const note=await notes.find(item[1]);if(item[2]==='snapshot'){send(await notes.evidence(note.evidenceSha256));return;}
+    if(item[2]==='catalog'){send(note.catalogAttachment??null);return;}
     if(item[2]==='json'){res.setHeader('Content-Disposition',`attachment; filename="rea-frame-${note.frame}-${note.id}.json"`);send({comment:note,snapshot:await notes.evidence(note.evidenceSha256)});return;}
     if(item[2]==='markdown'){res.writeHead(200,{'Content-Type':'text/markdown; charset=utf-8','Content-Disposition':`attachment; filename="rea-frame-${note.frame}-${note.id}.md"`});res.end(notes.markdown(note));return;}
     if(item[2]==='bundle'){const bytes=await notes.bundle(note.id);res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':'attachment; filename="rea-investigation.zip"'});res.end(bytes);return;}
@@ -162,7 +183,7 @@ export async function startInspector({port=8775,nativePort=port+1,token=randomBy
     }
     send({error:'Unknown endpoint'},404);return;
    }
-   const routes={'/':'index.html','/app.mjs':'app.mjs','/workbench.mjs':'workbench.mjs','/style.css':'style.css','/inspection.mjs':'inspection.mjs','/helpers.mjs':'helpers.mjs','/comments.mjs':'comments.mjs','/vendor/markup.mjs':'vendor/markup.mjs','/vendor/mermaid.mjs':'vendor/mermaid.mjs','/vendor/LICENSES.txt':'vendor/LICENSES.txt'};
+   const routes={'/':'index.html','/app.mjs':'app.mjs','/workbench.mjs':'workbench.mjs','/style.css':'style.css','/inspection.mjs':'inspection.mjs','/helpers.mjs':'helpers.mjs','/comments.mjs':'comments.mjs','/catalog.mjs':'catalog.mjs','/catalog-ui.mjs':'catalog-ui.mjs','/vendor/markup.mjs':'vendor/markup.mjs','/vendor/mermaid.mjs':'vendor/mermaid.mjs','/vendor/LICENSES.txt':'vendor/LICENSES.txt'};
    const name=routes[u.pathname];if(!name){res.writeHead(404);res.end();return;}
    const content=await readFile(path.join(here,'public',name));res.writeHead(200,{'Content-Type':name.endsWith('.mjs')?'text/javascript':name.endsWith('.css')?'text/css':name.endsWith('.txt')?'text/plain':'text/html'});res.end(content);
   }catch(e){if(!res.headersSent){res.writeHead(e.status||400,{'Content-Type':'application/json'});res.end(JSON.stringify({error:e.message,current:e.current}));}else res.end();}
