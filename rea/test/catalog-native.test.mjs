@@ -305,7 +305,8 @@ test('native sprite and tile catalog, replay attachments and restart', {skip: !e
   assert.equal(replay.movie.inputFrame, 97);
   assert.equal(replay.movieFile.status, 'verified', JSON.stringify(replay.movieFile));
   assert.deepEqual(await readFile(replay.movie.path), fm2);
-  const replayTile = await attachRunningTile(replayStart, 'FM2 observation of the chosen wall cell');
+  const tileReplayStart = await nextRunningCapture(replayStart);
+  const replayTile = await attachRunningTile(tileReplayStart, 'FM2 observation of the chosen wall cell');
   assert.equal(replayTile.movie.readOnly, true);
   assert.equal(replayTile.movie.inputFrame, replayTile.frame - 1);
   assert.equal(replayTile.movieFile.status, 'verified', JSON.stringify(replayTile.movieFile));
