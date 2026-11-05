@@ -1,6 +1,6 @@
 # NES REAPER - FCEUX
 
-**An independent fork of [TASEmulators/fceux](https://github.com/TASEmulators/fceux), with an AI-ready NES reverse-engineering workspace.** FCEUX's authors retain their credits and copyrights. This fork adds the REA inspection service, browser interface, deterministic controls and game-specific collision helpers. It is not an official FCEUX release.
+**NES REAPER - FCEUX** is an independent fork of [TASEmulators/fceux](https://github.com/TASEmulators/fceux), with an AI-ready NES reverse-engineering workspace. FCEUX's authors retain their credits and copyrights. NES REAPER adds the REA inspection service, browser interface, deterministic controls and game-specific collision helpers. It is not an official FCEUX release.
 
 ## Download NES REAPER - FCEUX for Windows
 

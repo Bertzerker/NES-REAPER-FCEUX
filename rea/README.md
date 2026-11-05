@@ -1,4 +1,4 @@
-# FCEUX REA NES inspector
+# NES REAPER - FCEUX
 
 Published as **NES REAPER - FCEUX**, an independent GitHub fork of `TASEmulators/fceux`. The portable **NES REAPER - FCEUX** Windows release includes the emulator, REA interface, launcher and Node runtime: [download the latest release](https://github.com/Bertzerker/NES-REAPER-FCEUX/releases/latest). See [RELEASING.md](RELEASING.md) for package contents and source.
 
