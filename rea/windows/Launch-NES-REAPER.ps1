@@ -11,7 +11,7 @@ try {
   if($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK){exit 0}
   $Rom=$dialog.FileName;$dialog.Dispose()
  }
- Write-Host 'NES REAPER - FCEUX / MEGA REAPER - FCEUX' -ForegroundColor Cyan
+ Write-Host 'NES REAPER - FCEUX' -ForegroundColor Cyan
  Write-Host "REA interface: http://127.0.0.1:$Port/"
  Write-Host 'Open that address in your browser (or use Open-REA-Interface.url for port 8775).'
  Write-Host 'The game and inspection start paused. Keep this console open; close FCEUX to stop.'
