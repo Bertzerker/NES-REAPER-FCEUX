@@ -1,6 +1,6 @@
 NES REAPER - FCEUX
-Windows x64 portable release of NES REAPER - FCEUX
-https://github.com/Bertzerker/NES-REAPER-FCEUX
+Portable Windows x64 | @RELEASE_VERSION@
+https://github.com/Bertzerker/NES-REAPER-FCEUX/releases/tag/@RELEASE_VERSION@
 
 This project is a fork of TASEmulators/fceux:
 https://github.com/TASEmulators/fceux
@@ -51,8 +51,8 @@ TAS editing/recording remains in native FCEUX. See rea/MOVIES.md and rea/WORKBEN
 
 SOURCE AND LICENSE
 FCEUX and the REA modifications: GPL-2.0-or-later; see COPYING.
-Complete corresponding source is available in the same GitHub release as
-NES-REAPER-FCEUX-v0.1.0-source.zip and at the release tag in the repository.
-Build instructions: rea/README.md and rea/Build-REA.ps1.
+Download NES-REAPER-FCEUX-@RELEASE_VERSION@-source.zip from the release above.
+It contains the complete corresponding emulator and REA source, including
+the build scripts. See rea/RELEASING.md for build and packaging instructions.
 Lua, 7-Zip and Node.js retain their separate notices under licenses/.
 Offline comment renderer notices: rea/public/vendor/LICENSES.txt.

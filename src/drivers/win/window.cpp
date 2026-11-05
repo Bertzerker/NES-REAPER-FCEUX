@@ -1,4 +1,4 @@
-// Modified by MEGA REAPER - FCEUX, 2026-11-04: opt-in REA inspection hooks and Windows scheduling.
+// Modified by NES REAPER - FCEUX, 2026-11-04: opt-in REA inspection hooks and Windows scheduling.
 // Independent fork of TASEmulators/fceux; upstream notices retained. See FORK-NOTICE.md.
 /* FCE Ultra - NES/Famicom Emulator
 *
@@ -196,9 +196,11 @@ string moviehelp = "MovieRecording";		 //Movie Recording
 string gettingstartedhelp = "Gettingstarted";//Getting Started
 
 //********************************************************************************
+static const char MainWindowTitle[] = "NES REAPER - FCEUX " FCEU_VERSION_STRING;
+
 void SetMainWindowText()
 {
-	string str = FCEU_NAME_AND_VERSION;
+	string str = MainWindowTitle;
 	if (newppu)
 		str.append(" (New PPU)");
 	if (GameInfo)
@@ -1163,7 +1165,7 @@ bool ALoad(const char *nameo, char* innerFilename, bool silent)
 	}
 	else
 	{
-		SetWindowText(hAppWnd, FCEU_NAME_AND_VERSION);	//adelikat: If game fails to load while a previous one was open, the previous would have been closed, so reflect that in the window caption
+		SetWindowText(hAppWnd, MainWindowTitle);	//adelikat: If game fails to load while a previous one was open, the previous would have been closed, so reflect that in the window caption
 		return false;
 	}
 	
@@ -2765,7 +2767,7 @@ int CreateMainWindow()
 	hAppWnd = CreateWindowEx(
 		0,
 		"FCEUXWindowClass",
-		FCEU_NAME_AND_VERSION,
+		MainWindowTitle,
 		WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS,  /* Style */
 		MainWindow_wndx,
 		MainWindow_wndy,

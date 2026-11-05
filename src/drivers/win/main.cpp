@@ -1,4 +1,4 @@
-// Modified by MEGA REAPER - FCEUX, 2026-11-04: opt-in REA inspection hooks and Windows scheduling.
+// Modified by NES REAPER - FCEUX, 2026-11-04: opt-in REA inspection hooks and Windows scheduling.
 // Independent fork of TASEmulators/fceux; upstream notices retained. See FORK-NOTICE.md.
 /* FCE Ultra - NES/Famicom Emulator
  *

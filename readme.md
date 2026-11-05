@@ -4,7 +4,7 @@
 
 ## Download NES REAPER - FCEUX for Windows
 
-Get **NES-REAPER-FCEUX-v0.3.0-win-x64.zip** from [GitHub Releases](https://github.com/Bertzerker/NES-REAPER-FCEUX/releases/latest). The portable Windows 10/11 x64 package includes the modified emulator, Node runtime, REA web interface, launcher, required DLLs and licenses. No compiler, Python or npm installation is needed to run it.
+Get **NES-REAPER-FCEUX-v0.3.1-win-x64.zip** from [GitHub Releases](https://github.com/Bertzerker/NES-REAPER-FCEUX/releases/latest). The portable Windows 10/11 x64 package includes the modified emulator, Node runtime, REA web interface, launcher, required DLLs and licenses. No compiler, Python or npm installation is needed to run it.
 
 1. Extract the entire ZIP to a writable folder.
 2. Double-click **Launch-NES-REAPER.cmd** and select your own ROM, or drag a ROM onto the launcher.

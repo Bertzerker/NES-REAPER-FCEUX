@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='0.3.0',[string]$NodeExe)
+param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='0.3.1',[string]$NodeExe)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 if((& git -C $root status --porcelain --untracked-files=normal)){throw 'Commit source changes before packaging so the source manifest identifies the complete release.'}
@@ -21,7 +21,7 @@ $stage=Join-Path $dist ('staging-'+[guid]::NewGuid().ToString('N'));$package=Joi
 New-Item -ItemType Directory -Force (Join-Path $package 'runtime'),(Join-Path $package 'licenses'),(Join-Path $package 'rea/bin'),(Join-Path $package 'rea/public'),(Join-Path $package 'rea/helpers'),(Join-Path $package 'rea/research') | Out-Null
 function Copy-ReleaseFile([string]$from,[string]$to){Copy-Item -LiteralPath (Join-Path $root $from) -Destination (Join-Path $package $to)}
 foreach($name in @('fceux64.exe','lua51.dll','lua5.1.dll','7z_64.dll')){Copy-ReleaseFile "rea/bin/$name" "rea/bin/$name"}
-foreach($name in @('server.mjs','annotations.mjs','evidence.mjs','bundle.mjs','package.json','Start-REA.ps1','README.md','SPEC.md','HELPERS.md','MOVIES.md','WORKBENCH.md','VALIDATION.md')){Copy-ReleaseFile "rea/$name" "rea/$name"}
+foreach($name in @('server.mjs','annotations.mjs','evidence.mjs','bundle.mjs','package.json','Start-REA.ps1','README.md','SPEC.md','HELPERS.md','MOVIES.md','WORKBENCH.md','VALIDATION.md','RELEASING.md')){Copy-ReleaseFile "rea/$name" "rea/$name"}
 foreach($name in @('app.mjs','workbench.mjs','comments.mjs','helpers.mjs','inspection.mjs','index.html','style.css')){Copy-ReleaseFile "rea/public/$name" "rea/public/$name"}
 New-Item -ItemType Directory -Force (Join-Path $package 'rea/public/vendor') | Out-Null
 foreach($name in @('markup.mjs','mermaid.mjs','LICENSES.txt')){Copy-ReleaseFile "rea/public/vendor/$name" "rea/public/vendor/$name"}
@@ -29,7 +29,7 @@ foreach($item in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'helpers') 
 Copy-ReleaseFile 'rea/research/KID-DRACULA.md' 'rea/research/KID-DRACULA.md'
 Copy-ReleaseFile 'rea/research/collision-evidence.json' 'rea/research/collision-evidence.json'
 foreach($name in @('Launch-NES-REAPER.cmd','Launch-NES-REAPER.ps1','Open-REA-Interface.url')){Copy-ReleaseFile "rea/windows/$name" $name}
-$readme=(Get-Content -LiteralPath (Join-Path $PSScriptRoot 'windows/README-WINDOWS.txt') -Raw).Replace('v0.1.0',"v$Version")
+$readme=(Get-Content -LiteralPath (Join-Path $PSScriptRoot 'windows/README-WINDOWS.txt') -Raw).Replace('@RELEASE_VERSION@',"v$Version")
 Set-Content -LiteralPath (Join-Path $package 'README-WINDOWS.txt') -Value $readme -Encoding UTF8
 Copy-ReleaseFile 'COPYING' 'COPYING'
 Copy-ReleaseFile 'src/lua/COPYRIGHT' 'licenses/Lua-COPYRIGHT.txt'
