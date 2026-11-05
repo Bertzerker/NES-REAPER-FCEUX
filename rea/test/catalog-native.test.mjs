@@ -7,7 +7,7 @@ import path from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {startInspector} from '../server.mjs';
 import {decodePacket} from '../public/inspection.mjs';
-import {fm2Header, fm2InputDigest, fromJSON, sha256} from '../evidence.mjs';
+import {fm2Header, fm2InputDigest, fromJSON, jsonSnapshot, sha256} from '../evidence.mjs';
 import {advanceCatalogFollow, beginCatalogFollow, catalogMatches, catalogPick, renderCatalog} from '../public/catalog.mjs';
 
 const root = path.resolve('rea');
@@ -181,8 +181,13 @@ test('native sprite and tile catalog, replay attachments and restart', {skip: !e
   assert.equal(result.instances[0].pieces.length, 2);
   const tiles = matches(state, tile);
   assert.equal(tiles.instances.length, 3840);
-  assert.equal(tiles.instances[0].pieces[0].nametableAddress, 8192);
-  const tileFollow = beginCatalogFollow(state, tile, tiles.instances[0]);
+  const tileAddress = 0x2042;
+  const chosenCell = result => result.instances.find(instance => instance.pieces[0].nametableAddress === tileAddress);
+  const chosen = chosenCell(tiles);
+  assert.deepEqual([chosen.x, chosen.y, chosen.width, chosen.height], [16, 16, 8, 8]);
+  const tilePixels = renderCatalog(state, tiles, [chosen]);
+  assert.equal(tilePixels[(16 * tiles.size[0] + 16) * 4 + 3], 255);
+  assert.equal(tilePixels[(16 * tiles.size[0] + 24) * 4 + 3], 0, 'An adjacent repeat stays outside the isolation');
   const first = result.instances[0], rgba = renderCatalog(state, result, [first]);
   assert.equal(rgba[(82 * 256 + first.x + 2) * 4 + 3], 255);
   assert.equal(rgba[(82 * 256 + result.instances[1].x + 2) * 4 + 3], 0);
@@ -193,7 +198,6 @@ test('native sprite and tile catalog, replay attachments and restart', {skip: !e
   await update({op: 'append', entryId: spriteId, snapshot: state.meta.id, picks: picksFor(state, 'sprite-raster', true)});
   assert.equal(spriteEntry().selectors.length, 2);
   assert.equal(matches(state).instances[0].selectorIndex, 1);
-  assert.equal(advanceCatalogFollow(tileFollow, state, tile, matches(state, tile)).status, 'following');
   state = await step(4);
   result = matches(state);
   let follow = beginCatalogFollow(state, spriteEntry(), result.instances[0]);
@@ -204,20 +208,50 @@ test('native sprite and tile catalog, replay attachments and restart', {skip: !e
   assert.equal(follow.instance.x, startX + 8);
   assert.equal(follow.instance.selectorIndex, 1);
 
-  async function attach(state, instance, text) {
-   const entry = spriteEntry();
+  const observations = [];
+  async function attach(state, entry, instance, text) {
    const anchor = await get('/api/annotations/capture', {snapshot: state.meta.id, catalog: {
     entryId: entry.id, entryRevision: entry.revision, revision: catalog.revision, etag: catalog.etag, match: instance.key
    }}, 201);
    const note = await get('/api/annotations', {snapshot: anchor.snapshot, evidenceSha256: anchor.evidenceSha256,
     catalogAttachmentSha256: anchor.catalogAttachmentSha256, kind: 'observation', format: 'markdown', text}, 201);
    assert.equal(note.catalogAttachment.captureId, state.meta.id);
-   assert.equal(note.catalogAttachment.match.x, instance.x);
+   assert.deepEqual(note.catalogAttachment.match, instance);
    assert.equal(note.catalogAttachment.label, entry.name);
-   assert.equal(note.catalogAttachment.evidenceClass, 'sprite-raster');
+   assert.equal(note.catalogAttachment.evidenceClass, entry.kind === 'tile' ? 'nametable' : 'sprite-raster');
+   assert.equal(note.catalogAttachment.catalogRevision, catalog.revision);
+   assert.equal(note.catalogAttachment.entryRevision, entry.revision);
+   observations.push({note, state, entry});
    return note;
   }
-  const live = await attach(state, follow.instance, 'Live motion observation');
+
+  async function nextRunningCapture(previous) {
+   await delay(510);
+   const r = await response('/api/live?after=' + previous.meta.id);
+   assert.equal(r.status, 200);
+   const next = decodePacket(Buffer.from(await r.arrayBuffer()));
+   assert.ok(next.meta.frame > previous.meta.frame, 'The machine advanced during capture');
+   assert.equal(next.meta.playback.paused, false);
+   return next;
+  }
+
+  async function attachRunningTile(start, text) {
+   const startCell = chosenCell(matches(start, tile));
+   assert.ok(startCell, 'The chosen logical cell is visible before following');
+   const observed = await nextRunningCapture(start);
+   const track = advanceCatalogFollow(beginCatalogFollow(start, tile, startCell), observed, tile, matches(observed, tile));
+   assert.equal(track.status, 'following', track.reason);
+   assert.deepEqual(track.instance, startCell);
+   assert.equal(track.captureId, observed.meta.id);
+   const pinnedTile = await snapshot(track.captureId);
+   const later = await nextRunningCapture(observed);
+   const note = await attach(pinnedTile, tile, track.instance, text);
+   assert.ok(note.frame < later.meta.frame, 'The comment stays on the pinned frame while playback advances');
+   assert.equal((await get('/api/playback')).paused, false);
+   return note;
+  }
+
+  const live = await attach(state, spriteEntry(), follow.instance, 'Live motion observation');
   const startFollow = follow;
   state = await step(8, 18);
   follow = advanceCatalogFollow(follow, state, spriteEntry(), matches(state));
@@ -245,6 +279,9 @@ test('native sprite and tile catalog, replay attachments and restart', {skip: !e
 
   const performance = [await profile(false), await profile(true)];
   assert.equal(performance[1].lastSize - performance[0].lastSize >= 19430, true);
+  const liveTile = await attachRunningTile(await capture({op: 'run'}), 'Live observation of the chosen wall cell');
+  assert.equal(liveTile.catalogAttachment.movie, null);
+  await control({op: 'pause'});
 
   const fm2 = movieBytes(rom);
   await writeFile(path.join(dataDir, 'catalog-diagnostic.fm2'), fm2);
@@ -258,34 +295,48 @@ test('native sprite and tile catalog, replay attachments and restart', {skip: !e
   follow = advanceCatalogFollow(follow, pinned, spriteEntry(), matches(pinned));
   assert.equal(follow.status, 'following', follow.reason);
   assert.equal(follow.instance.selectorIndex, 1);
-  await control({op: 'movie-play'});
+  const replayStart = await capture({op: 'movie-play'});
+  assert.equal(replayStart.meta.playback.movie.readOnly, true);
   await delay(200);
   assert.equal((await get('/api/playback')).paused, false);
-  const replay = await attach(pinned, follow.instance, 'Pinned replay observation');
+  const replay = await attach(pinned, spriteEntry(), follow.instance, 'Pinned replay observation');
   assert.equal((await get('/api/playback')).paused, false, 'Attaching pinned evidence leaves replay running');
   assert.equal(replay.frame, 98);
   assert.equal(replay.movie.inputFrame, 97);
   assert.equal(replay.movieFile.status, 'verified', JSON.stringify(replay.movieFile));
   assert.deepEqual(await readFile(replay.movie.path), fm2);
+  const replayTile = await attachRunningTile(replayStart, 'FM2 observation of the chosen wall cell');
+  assert.equal(replayTile.movie.readOnly, true);
+  assert.equal(replayTile.movie.inputFrame, replayTile.frame - 1);
+  assert.equal(replayTile.movieFile.status, 'verified', JSON.stringify(replayTile.movieFile));
+  assert.deepEqual(await readFile(replayTile.movie.path), fm2);
   await control({op: 'pause'});
   for (let i = 0; i < 18; i++) await movieStep(1);
   await get('/api/snapshot?snapshot=' + pinned.meta.id, undefined, 404);
+  await get('/api/snapshot?snapshot=' + replayTile.snapshot, undefined, 404);
   const restarted = await capture({op: 'movie-restart'});
   assert.equal(advanceCatalogFollow(follow, restarted, spriteEntry(), matches(restarted)).status, 'lost');
 
   await update({op: 'edit', entryId: spriteId, name: 'Renamed actors', labels: ['revised'], notes: 'Current only'});
+  await update({op: 'edit', entryId: tileId, name: 'Renamed wall', labels: ['revised'], notes: 'Current only'});
   assert.equal(spriteEntry().revision, 3);
   await stopNative();
   await server.close();
   server = await startInspector({port: 18945, dataDir});
-  assert.equal((await get('/api/catalog?rom=' + rom)).entries.find(entry => entry.id === spriteId).name, 'Renamed actors');
-  for (const note of [live, replay]) {
+  const reopenedCatalog = await get('/api/catalog?rom=' + rom);
+  assert.equal(reopenedCatalog.entries.find(entry => entry.id === spriteId).name, 'Renamed actors');
+  const renamedTile = reopenedCatalog.entries.find(entry => entry.id === tileId);
+  assert.equal(renamedTile.name, 'Renamed wall');
+  assert.equal(renamedTile.revision, tile.revision + 1);
+  for (const {note, state, entry} of observations) {
    const route = '/api/annotations/' + note.id;
    const saved = await get(route + '/catalog');
-   assert.equal(saved.label, 'Twin actors');
-   assert.equal(saved.entryRevision, 2);
+   assert.deepEqual(saved, note.catalogAttachment);
+   assert.deepEqual(saved.definition, entry);
+   assert.equal(saved.label, entry.name);
+   assert.equal(saved.entryRevision, entry.revision);
    assert.equal(sha256(JSON.stringify(saved)), note.catalogAttachmentSha256);
-   assert.equal((await get(route + '/snapshot')).id, saved.captureId);
+   assert.deepEqual(await get(route + '/snapshot'), jsonSnapshot(state));
    assert.equal((await get(route + '/json')).comment.catalogAttachment.definitionSha256, saved.definitionSha256);
    const png = await response(note.imageUrl);
    assert.equal(sha256(Buffer.from(await png.arrayBuffer())), note.imageSha256);
@@ -295,7 +346,9 @@ test('native sprite and tile catalog, replay attachments and restart', {skip: !e
    const manifest = JSON.parse(files.get('manifest.json'));
    for (const entry of manifest.files) assert.equal(sha256(files.get(entry.path)), entry.sha256, entry.path);
    assert.equal(sha256(files.get('catalog/' + note.catalogAttachmentSha256 + '.json')), note.catalogAttachmentSha256);
-   if (note === replay) {
+   assert.equal(sha256(files.get('evidence/' + note.evidenceSha256 + '.json')), note.evidenceSha256);
+   assert.equal(sha256(files.get('evidence/' + note.imageSha256 + '.png')), note.imageSha256);
+   if (note.movieFile.status === 'verified') {
     assert.deepEqual(files.get('movie/original.fm2'), fm2);
     const annotated = files.get('movie/annotated.fm2');
     assert.deepEqual(annotated.subarray(fm2Header(annotated).boundary), fm2.subarray(fm2Header(fm2).boundary));
@@ -313,9 +366,17 @@ test('native sprite and tile catalog, replay attachments and restart', {skip: !e
   assert.equal(catalogPick(newPpu, picksFor(newPpu, 'oam')[0]).source, 'oam');
   assert.equal(catalogPick(newPpu, {source:'nametable',x:18,y:18}).source, 'nametable');
   await get('/api/control', {op: 'catalog-observe', enabled: true}, 409);
+  const tileEvidence = note => ({
+   id: note.id, frame: note.frame, inputFrame: note.movie?.inputFrame, captureId: note.snapshot,
+   catalogRevision: note.catalogAttachment.catalogRevision, entryRevision: note.catalogAttachment.entryRevision,
+   nametableAddress: tileAddress, bounds: [chosen.x, chosen.y, chosen.width, chosen.height],
+   attachment: note.catalogAttachmentSha256, snapshotSha256: note.evidenceSha256, imageSha256: note.imageSha256
+  });
   const report = {newPpuDiagnostics: ['oam', 'nametable'], live: {id: live.id, frame: live.frame, captureId: live.snapshot, attachment: live.catalogAttachmentSha256},
    replay: {id: replay.id, frame: replay.frame, inputFrame: replay.movie.inputFrame, captureId: replay.snapshot,
-    attachment: replay.catalogAttachmentSha256, fm2Sha256: sha256(fm2)}, performance};
+    attachment: replay.catalogAttachmentSha256, fm2Sha256: sha256(fm2)},
+   tiles: {live: tileEvidence(liveTile), replay: tileEvidence(replayTile), reopenedAs: renamedTile.name,
+    reopenedEntryRevision: renamedTile.revision, fm2InputsUnchanged: true}, performance};
   await writeFile(path.join(output, 'catalog-native-validation.json'), JSON.stringify(report, null, 2));
  } finally {
   await stopNative();
