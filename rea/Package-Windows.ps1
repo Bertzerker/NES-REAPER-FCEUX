@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='0.2.0',[string]$NodeExe)
+param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='0.3.0',[string]$NodeExe)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 if((& git -C $root status --porcelain --untracked-files=normal)){throw 'Commit source changes before packaging so the source manifest identifies the complete release.'}
@@ -21,8 +21,8 @@ $stage=Join-Path $dist ('staging-'+[guid]::NewGuid().ToString('N'));$package=Joi
 New-Item -ItemType Directory -Force (Join-Path $package 'runtime'),(Join-Path $package 'licenses'),(Join-Path $package 'rea/bin'),(Join-Path $package 'rea/public'),(Join-Path $package 'rea/helpers'),(Join-Path $package 'rea/research') | Out-Null
 function Copy-ReleaseFile([string]$from,[string]$to){Copy-Item -LiteralPath (Join-Path $root $from) -Destination (Join-Path $package $to)}
 foreach($name in @('fceux64.exe','lua51.dll','lua5.1.dll','7z_64.dll')){Copy-ReleaseFile "rea/bin/$name" "rea/bin/$name"}
-foreach($name in @('server.mjs','annotations.mjs','evidence.mjs','package.json','Start-REA.ps1','README.md','SPEC.md','HELPERS.md','MOVIES.md','VALIDATION.md')){Copy-ReleaseFile "rea/$name" "rea/$name"}
-foreach($name in @('app.mjs','comments.mjs','helpers.mjs','inspection.mjs','index.html','style.css')){Copy-ReleaseFile "rea/public/$name" "rea/public/$name"}
+foreach($name in @('server.mjs','annotations.mjs','evidence.mjs','bundle.mjs','package.json','Start-REA.ps1','README.md','SPEC.md','HELPERS.md','MOVIES.md','WORKBENCH.md','VALIDATION.md')){Copy-ReleaseFile "rea/$name" "rea/$name"}
+foreach($name in @('app.mjs','workbench.mjs','comments.mjs','helpers.mjs','inspection.mjs','index.html','style.css')){Copy-ReleaseFile "rea/public/$name" "rea/public/$name"}
 New-Item -ItemType Directory -Force (Join-Path $package 'rea/public/vendor') | Out-Null
 foreach($name in @('markup.mjs','mermaid.mjs','LICENSES.txt')){Copy-ReleaseFile "rea/public/vendor/$name" "rea/public/vendor/$name"}
 foreach($item in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'helpers') -Filter '*.json' -File){Copy-Item -LiteralPath $item.FullName -Destination (Join-Path $package 'rea/helpers')}
@@ -49,7 +49,7 @@ foreach($resource in (& git -C $root ls-files -- output/luaScripts output/palett
 foreach($name in @('fceux.chm','taseditor.chm')){Copy-ReleaseFile "output/$name" "rea/bin/$name"}
 $files=@(Get-ChildItem -LiteralPath $package -File -Recurse | Sort-Object FullName | ForEach-Object {[ordered]@{path=$_.FullName.Substring($package.Length+1).Replace('\','/');bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
 if(@($files | Where-Object {$_.path -match '(?i)(^|/)(session|roms|sav|fcs|snaps|movies|cheats)/|\.(nes|fds|sav|fcs|fm2|cfg|pdb|log)$'}).Count){throw 'Unexpected ROM, user data or build artifact in package.'}
-$manifest=[ordered]@{project='MEGA REAPER - FCEUX';release='NES REAPER - FCEUX';version=$Version;platform='windows-x64';repository='https://github.com/Bertzerker/MEGA-REAPER-FCEUX';upstream='https://github.com/TASEmulators/fceux';sourceCommit=(& git -C $root rev-parse HEAD).Trim();nodeVersion=$nodeVersion;nodeSha256=$actual;files=$files}
+$manifest=[ordered]@{project='NES REAPER - FCEUX';release='NES REAPER - FCEUX';version=$Version;platform='windows-x64';repository='https://github.com/Bertzerker/NES-REAPER-FCEUX';upstream='https://github.com/TASEmulators/fceux';sourceCommit=(& git -C $root rev-parse HEAD).Trim();nodeVersion=$nodeVersion;nodeSha256=$actual;files=$files}
 [IO.File]::WriteAllText((Join-Path $package 'release-manifest.json'),($manifest | ConvertTo-Json -Depth 6),(New-Object Text.UTF8Encoding($false)))
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [IO.Compression.ZipFile]::CreateFromDirectory($stage,$archive,[IO.Compression.CompressionLevel]::Optimal,$false)

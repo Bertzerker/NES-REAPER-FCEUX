@@ -2,6 +2,8 @@
 
 Status: working Windows implementation with a staged roadmap. Upstream base: TASEmulators/fceux `8cc753da0b8e6924089ed76ce6a2a93997492264`. License: GPL-2.0-or-later; retain upstream COPYING and file notices.
 
+The implemented compact browser layout, command availability/lifecycle, Live/Frozen/Saved contexts, sixteen compatible session checkpoints, explicit memory baselines, configurable execution, per-tab drafts, optimistic comment revisions and archived movie/evidence ZIPs are specified in [WORKBENCH.md](WORKBENCH.md). These preserve the hardware/provenance boundaries below.
+
 ## Purpose
 
 The system must let a human or AI move from an observed behavior to the graphics state, memory changes, and executed instructions responsible for it, then reproduce and test that explanation.

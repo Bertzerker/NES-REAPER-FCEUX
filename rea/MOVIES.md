@@ -1,13 +1,13 @@
 # Movies, TAS playback and frame comments
 
-The REA page has a movie toolbar with **Play**, **Pause**, **Movie frame →**, **Restart movie** and speed selection from **25% to 200%** in 25% steps. Open a local FM2 after launching its matching ROM. Uploads go only to the local inspector; the original file stays unchanged. The interface loads a read-only working copy. FM2 version 3, standard gamepads / Four Score and files up to 16 MiB are supported by this loader. Other movie devices and FM3 projects can be opened through native FCEUX; verified FM2 export is limited to supported saved movies.
+The REA page has one shared **Play**, **Pause**, **Step frame →** toolbar and speed selection from **25% to 200%** in 25% steps. The Movies drawer provides import, restart and stop. Open a local FM2 after launching its matching ROM. Uploads go only to the local inspector; the original file stays unchanged. The interface loads a read-only working copy. FM2 version 3, standard gamepads / Four Score and files up to 16 MiB are supported by this loader. Other movie devices and FM3 projects can be opened through native FCEUX; verified FM2 export is limited to supported saved movies.
 
 Native TAS Editor playback is exposed through the same controls. Browser play/step refuses recording modes, including TAS Editor recording. Use native FCEUX to edit inputs, manage TAS projects or record. Browser movie stepping consumes recorded inputs and never injects a replacement controller mask. Browser checkpoint save/restore is disabled while a movie is active. Playback stops at the end of the recorded movie. Speed sets FCEUX's throttle and turns off turbo/no-throttle; it does not change the movie inputs.
 
 ## Capture and comment
 
 1. Play or step to the event of interest.
-2. Choose **Pause & comment current frame** to stop at a completed frame and save its evidence. **Comment displayed capture** instead anchors the currently inspected capture, leaving the movie playhead alone.
+2. Choose **Pause & capture current frame** to stop at a completed frame and save its evidence. **Comment displayed** instead anchors the currently inspected capture, leaving the movie playhead alone.
 3. Write an observation or hypothesis in Markdown, JSON or Mermaid. Markdown can combine prose with fenced `json` and `mermaid` blocks; insertion buttons provide templates. Use **Preview comment** to render them.
 4. Save the comment. Editing its text later preserves the original evidence and frame anchor.
 
@@ -19,9 +19,9 @@ The anchor records ROM identity, movie name/path/GUID, mode, input length, rerec
 
 ## Export and movie provenance
 
-Each saved comment offers Markdown, JSON with copied memory and a PNG. A supported saved movie also offers **Annotated FM2 copy** when its on-disk ROM/GUID/revision/length and canonical input digest match the captured in-memory movie. The original file must still match its saved SHA-256 at export time.
+Each saved comment offers Markdown, JSON with copied memory and a PNG. A supported saved movie also offers **Annotated FM2 copy** when its on-disk ROM/GUID/revision/length and canonical input digest match the captured in-memory movie. New verified captures archive original movie bytes by SHA-256. Export checks those archived bytes, so the original path may change. Older notes without an archive require the unchanged source file.
 
-The FM2 copy adds `comment REA {…}` header records containing the frame, input index, comment and evidence hashes. Every original input byte is preserved. These records document the frame without writing controller input or overwriting the source. Native TAS/recording captures remain sidecar comments because editable input revisions may not match a saved file. Save/export the TAS project as FM2 and open that saved movie read-only to obtain a verified copy export. The PNG and full memory evidence remain separate exports; FM2 comment markers contain their hashes, not their bytes. Bundle those exports when sharing evidence with another machine.
+The FM2 copy adds `comment REA {…}` header records containing the frame, input index, comment and evidence hashes. Every original input byte is preserved. These records document the frame without writing controller input or overwriting the source. Native TAS/recording captures remain sidecar comments because editable input revisions may not match a saved file. Save/export the TAS project as FM2 and open that saved movie read-only to obtain a verified copy export. The PNG and full memory evidence remain separate exports; FM2 comment markers contain their hashes, not their bytes. **Evidence bundle** creates one ZIP containing verified original/annotated FM2, comments, PNGs, copied memory JSON and a size/SHA-256 manifest. It survives inspector restart. No ROM is included; the export is bounded to 64 MiB. See [WORKBENCH.md](WORKBENCH.md).
 
 Markdown and Mermaid render locally using bundled libraries, loaded only when requested. Raw HTML is sanitized, external images are disabled, and Mermaid runs in strict mode with configuration directives disabled, at most four diagrams and 8,000 characters per diagram. JSON mode validates before saving. Rendering is separate from the live capture loop.
 
@@ -36,12 +36,13 @@ All mutations require the session's `X-REA-Token`. Existing Host/Origin and loop
 | `POST /api/control` | `movie-play`, `pause`, `movie-step` with frames 1–3600, `movie-restart`, or `speed` with percent 25–200 in steps of 25 |
 | `POST /api/annotations/capture` | `{}` pauses and captures current frame; `{snapshot: ID}` captures retained evidence; `{evidenceSha256: HASH}` reuses durable evidence |
 | `POST /api/annotations` | `{kind, format, text, snapshot, evidenceSha256}` saves a comment against a capture |
-| `POST /api/annotations/ID` | `{kind, format, text}` edits content while retaining its evidence |
+| `POST /api/annotations/ID` | `{revision, kind, format, text}` edits content while retaining its evidence |
 | `GET /api/annotations` | Saved comments and anchors |
 | `GET /api/annotations/ID/snapshot` | Full stored snapshot JSON with hex buffers |
 | `GET /api/annotations/ID/json` | Comment plus full snapshot |
 | `GET /api/annotations/ID/markdown` | Frame metadata and formatted comment |
-| `GET /api/annotations/ID/fm2` | Annotated copy of a verified, unchanged source movie |
+| `GET /api/annotations/ID/bundle` | ZIP of comments, evidence, movie bytes and integrity manifest |
+| `GET /api/annotations/ID/fm2` | Annotated copy of a verified archived movie |
 | `GET /api/evidence/HASH.json` or `.png` | Persisted, checksum-verified evidence |
 
 JSON examples:

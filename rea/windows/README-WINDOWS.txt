@@ -1,6 +1,6 @@
 NES REAPER - FCEUX
-Windows x64 portable release of MEGA REAPER - FCEUX
-https://github.com/Bertzerker/MEGA-REAPER-FCEUX
+Windows x64 portable release of NES REAPER - FCEUX
+https://github.com/Bertzerker/NES-REAPER-FCEUX
 
 This project is a fork of TASEmulators/fceux:
 https://github.com/TASEmulators/fceux
@@ -11,7 +11,7 @@ GET STARTED
    You can also drag a ROM onto that launcher.
 3. Open http://127.0.0.1:8775/ in your browser. Open-REA-Interface.url
    is a shortcut to that address. In Codex, use the in-app browser.
-4. The game starts paused; use Run / Step frame in the interface.
+4. The game starts paused; use Play / Step frame in the interface.
    Resume inspection enables live updates, capped at two per second.
 5. Close FCEUX to stop the inspector. Only one FCEUX instance is allowed.
 
@@ -43,16 +43,16 @@ hardware rectangles. See rea/HELPERS.md and rea/research/KID-DRACULA.md.
 
 MOVIES AND FRAME COMMENTS
 Open an FM2 with the matching ROM, then use Play, Pause, Movie frame,
-Restart movie and 25-200% speed. Pause & comment current frame saves the
+Restart movie and 25-200% speed. Pause & capture current frame saves the
 render and copied memory with the movie frame/revision. Use Markdown,
 JSON and Mermaid, preview, edit and export. Review snapshot leaves the
 movie playhead unchanged. Annotated FM2 copies preserve original inputs;
-TAS editing/recording remains in native FCEUX. See rea/MOVIES.md.
+TAS editing/recording remains in native FCEUX. See rea/MOVIES.md and rea/WORKBENCH.md.
 
 SOURCE AND LICENSE
 FCEUX and the REA modifications: GPL-2.0-or-later; see COPYING.
 Complete corresponding source is available in the same GitHub release as
-MEGA-REAPER-FCEUX-v0.1.0-source.zip and at the release tag in the repository.
+NES-REAPER-FCEUX-v0.1.0-source.zip and at the release tag in the repository.
 Build instructions: rea/README.md and rea/Build-REA.ps1.
 Lua, 7-Zip and Node.js retain their separate notices under licenses/.
 Offline comment renderer notices: rea/public/vendor/LICENSES.txt.

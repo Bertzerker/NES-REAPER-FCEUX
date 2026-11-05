@@ -579,6 +579,14 @@ void DoPriority()
 }
 
 // REA changes wall-clock playback speed without touching recorded input.
+#include "resource.h"
+bool REA_OpenWindowsTool(unsigned tool)
+{
+ const unsigned ids[]={MENU_TASEDITOR,MENU_DEBUGGER,MENU_PPUVIEWER,MENU_NAMETABLEVIEWER,MENU_HEXEDITOR};
+ if(tool<1 || tool>5 || !hAppWnd || !GameInfo)return false;
+ if(tool==1 && !FCEU_IsValidUI(FCEUI_TASEDITOR))return false;
+ return PostMessage(hAppWnd,WM_COMMAND,ids[tool-1],0)!=0;
+}
 extern int32 fps_scale_unpaused;
 void REA_SetWindowsSpeed(unsigned percent)
 {

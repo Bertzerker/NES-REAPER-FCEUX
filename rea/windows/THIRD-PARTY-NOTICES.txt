@@ -1,8 +1,8 @@
-MEGA REAPER - FCEUX / NES REAPER - FCEUX
+NES REAPER - FCEUX
 
 FCEUX: GPL-2.0-or-later, with the upstream authors' copyrights retained.
 Upstream: https://github.com/TASEmulators/fceux
-Fork: https://github.com/Bertzerker/MEGA-REAPER-FCEUX
+Fork: https://github.com/Bertzerker/NES-REAPER-FCEUX
 Complete corresponding emulator/REA source is provided with the release.
 
 Lua 5.1.4: Copyright (C) 1994-2008 Lua.org, PUC-Rio. MIT license;

@@ -1,12 +1,12 @@
 # FCEUX REA NES inspector
 
-Published as **MEGA REAPER - FCEUX**, an independent GitHub fork of `TASEmulators/fceux`. The portable **NES REAPER - FCEUX** Windows release includes the emulator, REA interface, launcher and Node runtime: [download the latest release](https://github.com/Bertzerker/MEGA-REAPER-FCEUX/releases/latest). See [RELEASING.md](RELEASING.md) for package contents and source.
+Published as **NES REAPER - FCEUX**, an independent GitHub fork of `TASEmulators/fceux`. The portable **NES REAPER - FCEUX** Windows release includes the emulator, REA interface, launcher and Node runtime: [download the latest release](https://github.com/Bertzerker/NES-REAPER-FCEUX/releases/latest). See [RELEASING.md](RELEASING.md) for package contents and source.
 
 A local GPL-2.0-or-later FCEUX modification with synchronized inspection for humans and AI clients. The complete hardware model, contracts, limitations and roadmap are in [SPEC.md](SPEC.md). Upstream base: [TASEmulators/fceux](https://github.com/TASEmulators/fceux), commit `8cc753da0b8e6924089ed76ce6a2a93997492264`. Retain upstream `COPYING` when sharing binaries or source.
 
-See [VALIDATION.md](VALIDATION.md) for completed checks and their limits.
+See [WORKBENCH.md](WORKBENCH.md) for the compact interface, availability states, comparisons, checkpoints, draft recovery and bundles. See [VALIDATION.md](VALIDATION.md) for checks and limits.
 
-The movie toolbar supports play, pause, frame step, restart and 25–200% speed. **Pause & comment current frame** saves a composite PNG and copied memory snapshot anchored to the movie's frame and input revision. Comments support Markdown with JSON and Mermaid blocks, previews, editing, review and exports, including an annotated FM2 copy with unchanged inputs. See [MOVIES.md](MOVIES.md) for use, provenance and API contracts.
+The movie toolbar supports play, pause, frame step, restart and 25–200% speed. **Pause & capture current frame** saves a composite PNG and copied memory snapshot anchored to the movie's frame and input revision. Comments support Markdown with JSON and Mermaid blocks, previews, editing, review and exports, including an annotated FM2 copy with unchanged inputs. See [MOVIES.md](MOVIES.md) for use, provenance and API contracts.
 
 ## Run on Windows
 

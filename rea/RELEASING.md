@@ -1,6 +1,6 @@
 # Windows releases
 
-GitHub repository: `Bertzerker/MEGA-REAPER-FCEUX`, an actual fork of `TASEmulators/fceux`. Product name for its NES Windows package: **NES REAPER - FCEUX**. REA modifications live on the fork's `main` branch; upstream `master` and ancestry are preserved.
+GitHub repository: `Bertzerker/NES-REAPER-FCEUX`, an actual fork of `TASEmulators/fceux`. Product name for its NES Windows package: **NES REAPER - FCEUX**. REA modifications live on the fork's `main` branch; upstream `master` and ancestry are preserved.
 
 Build and test on Windows x64 before packaging. Keep at most one FCEUX process open; close an existing instance before the native tests. `Build-REA.ps1` builds the emulator and a static-CRT Lua 5.1.4 core from the bundled source. The upstream Lua compatibility shim is retained, including its six internal debugger/bytecode exports in `lua-portable.def`, avoiding a dependency on the legacy VC2005 runtime. MSBuild/compilation worker limits remain in place.
 
@@ -11,7 +11,7 @@ node --test rea/test/helpers.test.mjs rea/test/inspection.test.mjs rea/test/evid
 $env:REA_NATIVE_TEST='1'
 node --test --test-concurrency=1 rea/test/native.test.mjs rea/test/movie-native.test.mjs rea/test/protocol.test.mjs
 Remove-Item Env:REA_NATIVE_TEST
-./rea/Package-Windows.ps1 -Version 0.2.0
+./rea/Package-Windows.ps1 -Version 0.3.0
 ```
 
 The portable packager pins the installed Windows x64 Node version, verifies its executable against the official `nodejs.org/dist/VERSION/SHASUMS256.txt`, and includes the full matching license. It needs network access on the first packaging run for those small files; they are cached in ignored `rea/vendor-cache/`. It creates a fresh staging directory and refuses to overwrite an existing versioned archive.
@@ -25,7 +25,7 @@ The allowlist includes the evidence/comment service modules, movie guide and off
 Publish together:
 
 - `NES-REAPER-FCEUX-vVERSION-win-x64.zip`
-- `MEGA-REAPER-FCEUX-vVERSION-source.zip`, created by `git archive` from the exact release commit
+- `NES-REAPER-FCEUX-vVERSION-source.zip`, created by `git archive` from the exact release commit
 - `7z1900-src.7z`, the official corresponding source for the unchanged 7-Zip 19.00 DLL
 - `SHA256SUMS.txt`
 

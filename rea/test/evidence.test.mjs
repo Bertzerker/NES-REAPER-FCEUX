@@ -25,10 +25,12 @@ test('durable comments retain original frame, serialize writes, detect tampering
   const bodies=[{kind:'observation',format:'markdown',text:'## Hit\n\n```json\n{"x":128}\n```'},{kind:'hypothesis',format:'mermaid',text:'flowchart LR\nA-->B'}];
   const notes=await Promise.all(bodies.map(body=>store.save({...body,evidenceSha256:capture.evidenceSha256,snapshot:s.meta.id})));assert.equal((await store.list()).length,2);
   s.meta.frame=999;assert.equal((await store.evidence(capture.evidenceSha256)).frame,2);assert.match(store.markdown(notes[1]),/```mermaid/);
-  const edited=await store.edit(notes[0].id,{kind:'observation',format:'json',text:'{"answer":42}'});assert.equal(edited.evidenceSha256,capture.evidenceSha256);assert.equal(edited.frame,2);
+  const edited=await store.edit(notes[0].id,{kind:'observation',format:'json',revision:1,text:'{"answer":42}'});assert.equal(edited.evidenceSha256,capture.evidenceSha256);assert.equal(edited.frame,2);
   const reopened=annotationStore(directory);assert.equal((await reopened.list()).length,2);assert.equal((await reopened.evidence(capture.evidenceSha256)).frame,2);
   const exported=await store.exportMovie(notes[0].id);assert.equal(fm2InputDigest(exported).md5,inputs.md5);assert.deepEqual(await readFile(filename),bytes);
-  await writeFile(filename,Buffer.concat([bytes,Buffer.from('\n')]));await assert.rejects(store.exportMovie(notes[0].id),/changed/);
+  await writeFile(filename,Buffer.concat([bytes,Buffer.from('\n')]));assert.equal(fm2InputDigest(await reopened.exportMovie(notes[0].id)).md5,inputs.md5,'Archived movie survives an original path change and inspector restart');
+  await assert.rejects(store.edit(notes[0].id,{kind:'observation',format:'markdown',text:'stale tab',revision:1}),e=>e.status===409&&e.current.revision===2);
+  const bundle=await reopened.bundle(notes[0].id);assert.equal(bundle.readUInt32LE(0),0x04034b50);await writeFile(path.join('rea/test-output','evidence-bundle.zip'),bundle);
   await writeFile(path.join(directory,capture.evidenceSha256+'.json'),'tampered');await assert.rejects(store.evidence(capture.evidenceSha256),/SHA-256/);
  }finally{assert.equal(path.dirname(path.resolve(directory)),path.resolve(tmpdir()));assert.ok(path.basename(directory).startsWith('rea-comments-'));await rm(directory,{recursive:true,force:true});}
 });

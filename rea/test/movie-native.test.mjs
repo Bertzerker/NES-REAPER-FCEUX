@@ -33,6 +33,6 @@ test('real movie playback, speed, frame comments, immutable evidence and annotat
   await writeFile(path.join(root,'test-output','movie-validation.json'),JSON.stringify({passed:true,frame:anchor.frame,inputFrame:anchor.movie.inputFrame,inputMd5:anchor.movie.inputMd5,renderSha256:anchor.imageSha256,comment:note.id,annotatedInputEqual:true,ramReplayEqual:true,screenReplayEqual:true,cycleReplayEqual:true},null,2));assert.equal(count(),1);
   const unauthorized=await fetch(server.url+'/api/annotations/capture',{method:'POST',body:'{}'});assert.equal(unauthorized.status,403);
   r=await post('/api/control',{op:'speed',percent:75});assert.equal(r.status,200);r=await post('/api/control',{op:'speed',percent:80});assert.equal(r.status,400);
-  await control({op:'movie-restart'});await control({op:'movie-step',frames:399});await control({op:'movie-play'});await delay(250);const ended=await get('/api/playback');assert.equal(ended.paused,true);assert.equal(ended.frame,400,'Movie must stop before any unrecorded frame');
+  await control({op:'movie-restart'});await control({op:'movie-step',frames:399});await control({op:'movie-play'});await delay(250);const ended=await get('/api/playback');assert.equal(ended.paused,true);assert.equal(ended.frame,400,'Movie must stop before any unrecorded frame');await control({op:'movie-stop'});assert.equal((await get('/api/playback')).movie.mode,'inactive');
  }finally{const exited=new Promise(r=>{if(child.exitCode!==null||child.signalCode!==null)r();else child.once('exit',r);});child.kill();await exited;await server.close();}
 });

@@ -37,6 +37,7 @@ extern uint32 TempAddr, RefreshAddr;
 extern void REA_SetWindowsSpeed(unsigned percent);
 extern unsigned REA_GetWindowsSpeed();
 extern bool isTaseditorRecording();
+extern bool REA_OpenWindowsTool(unsigned tool);
 namespace {
 SOCKET sock = INVALID_SOCKET;
 bool connecting = false, initialized = false, enabled = false, readHook = false, writeHook = false;
@@ -48,6 +49,10 @@ size_t sent = 0;
 uint8 bg[256*240], sp[256*240], masks[240], screen[256*240], emphasis[256*240];
 bool screenValid = false;
 std::unique_ptr<EMUFILE_MEMORY> checkpoints[16];
+unsigned checkpointFrames[16]={};
+bool checkpointNewPpu[16]={},checkpointPal[16]={};
+unsigned stepRequested=0,stepExecuted=0;
+std::string stopReason="not executed";
 unsigned stepLeft = 0, stepId = 0, pad0 = 0, pad1 = 0;
 bool injectStepInput = false;
 bool moviePlaybackOwned = false;
@@ -107,9 +112,16 @@ std::string playbackState() {
  std::string filename=active?FCEUI_GetMovieName():"";
  if(!filename.empty()){char full[32768];const DWORD n=GetFullPathNameA(filename.c_str(),sizeof(full),full,nullptr);if(n>0&&n<sizeof(full))filename.assign(full,n);}
  const size_t slash=filename.find_last_of("/\\");
+ std::string romName=GameInfo&&GameInfo->name?(const char*)GameInfo->name:"";
+ if(romName.empty()&&GameInfo&&GameInfo->filename){romName=GameInfo->filename;const size_t pos=romName.find_last_of("/\\");if(pos!=std::string::npos)romName=romName.substr(pos+1);}
  std::ostringstream out;
  out << "{\"paused\":" << (EmulationPaused?"true":"false") << ",\"speedPercent\":" << REA_GetWindowsSpeed()
- << ",\"frame\":" << FCEUMOV_GetFrame() << ",\"movie\":{\"mode\":" << jsonString(name)
+ << ",\"frame\":" << FCEUMOV_GetFrame() << ",\"session\":" << jsonString(session) << ",\"emulatedFrames\":" << frames
+ << ",\"region\":" << jsonString(PAL?"PAL":"NTSC") << ",\"ppuCore\":" << jsonString(newppu?"new":"old")
+ << ",\"romName\":" << jsonString(romName)
+ << ",\"checkpoints\":[";
+ for(unsigned i=0;i<16;i++){if(i)out<<',';out<<"{\"slot\":"<<i<<",\"occupied\":"<<(checkpoints[i]?"true":"false")<<",\"frame\":"<<checkpointFrames[i]<<",\"compatible\":"<<(checkpoints[i]&&checkpointNewPpu[i]==bool(newppu)&&checkpointPal[i]==bool(PAL)?"true":"false")<<",\"ppuCore\":"<<jsonString(checkpointNewPpu[i]?"new":"old")<<",\"region\":"<<jsonString(checkpointPal[i]?"PAL":"NTSC")<<'}';}
+ out << "],\"movie\":{\"mode\":" << jsonString(name)
  << ",\"name\":" << jsonString(filename.substr(slash==std::string::npos?0:slash+1)) << ",\"path\":" << jsonString(filename)
  << ",\"guid\":" << jsonString(active&&currMovieData.guid.isValid()?currMovieData.guid.toString():"")
  << ",\"length\":" << (active?FCEUI_GetMovieLength():0) << ",\"rerecordCount\":" << (active?FCEUI_GetMovieRerecordCount():0)
@@ -175,9 +187,10 @@ void connectSocket() {
 void capture() {
  if(sock==INVALID_SOCKET || connecting || (!output.empty() && !forceCapture)) return;
  captureId=session+"-"+std::to_string(epoch)+"-"+std::to_string(++sequence);
+ FILETIME time;GetSystemTimeAsFileTime(&time);ULARGE_INTEGER ticks;ticks.LowPart=time.dwLowDateTime;ticks.HighPart=time.dwHighDateTime;
  std::ostringstream j;
- j << "{\"kind\":\"snapshot\",\"version\":1,\"id\":\"" << captureId << "\",\"frame\":" << FCEUMOV_GetFrame()
- << ",\"cycle\":" << (timestampbase+timestamp) << ",\"region\":\"" << (PAL?"PAL":"NTSC") << "\",\"paused\":" << (EmulationPaused?"true":"false")
+ j << "{\"kind\":\"snapshot\",\"version\":1,\"id\":\"" << captureId << "\",\"session\":" << jsonString(session) << ",\"frame\":" << FCEUMOV_GetFrame()
+ << ",\"capturedAt\":" << ((ticks.QuadPart-116444736000000000ULL)/10000) << ",\"cycle\":" << (timestampbase+timestamp) << ",\"region\":\"" << (PAL?"PAL":"NTSC") << "\",\"paused\":" << (EmulationPaused?"true":"false")
  << ",\"playback\":" << playbackState()
  << ",\"screenValid\":" << (screenValid?"true":"false") << ",\"rasterValid\":" << (!newppu && rasterLines==240?"true":"false") << ",\"ppuCore\":\"" << (newppu?"new":"old") << "\",\"capturePoint\":\"after-ppu-before-osd\""
  << ",\"cpu\":{\"pc\":"<<X.PC<<",\"a\":"<<unsigned(X.A)<<",\"x\":"<<unsigned(X.X)<<",\"y\":"<<unsigned(X.Y)<<",\"s\":"<<unsigned(X.S)<<",\"p\":"<<unsigned(X.P)<<"}"
@@ -186,7 +199,7 @@ void capture() {
  const char* hex="0123456789abcdef"; if(GameInfo) for(int i=0;i<16;i++) j<<hex[GameInfo->MD5[i]>>4]<<hex[GameInfo->MD5[i]&15];
  j << "\",\"nametableAliases\":[";
  for(int i=0;i<4;i++) { if(i) j<<','; int alias=i; for(int k=0;k<i;k++) if(vnapage[i]==vnapage[k]) { alias=k; break; } j<<alias; }
- j << "],\"traceLimit\":"<<traceLimit<<",\"traceRemaining\":"<<traceLeft<<",\"eventsDropped\":"<<droppedEvents<<",\"watchHit\":"<<(watchHit?"true":"false")<<",\"events\":[";
+ j << "],\"execution\":{\"requestedFrames\":"<<stepRequested<<",\"completedFrames\":"<<stepExecuted<<",\"stopReason\":"<<jsonString(stopReason)<<",\"granularity\":\"completed-frame-boundary\"},\"traceLimit\":"<<traceLimit<<",\"traceRemaining\":"<<traceLeft<<",\"eventsDropped\":"<<droppedEvents<<",\"watchHit\":"<<(watchHit?"true":"false")<<",\"events\":[";
  for(size_t i=0;i<events.size();i++) { auto&e=events[i]; if(i) j<<','; j<<'['<<e.type<<','<<e.address<<','<<e.value<<','<<e.pc<<','<<e.cycle<<','<<e.a<<','<<e.x<<','<<e.y<<','<<e.s<<','<<e.p<<']'; }
  j << "],\"buffers\":[[\"screen\",61440],[\"emphasis\",61440],[\"background\",61440],[\"sprites\",61440],[\"lineMasks\",240],[\"rgbPalette\",1536],[\"ram\",2048],[\"chr\",8192],[\"nametables\",4096],[\"oam\",256],[\"palette\",32]]}";
  std::vector<char> bytes; bytes.reserve(270000);
@@ -212,24 +225,28 @@ void command(const std::string& line) {
  }
  in>>a>>b>>c;
  if((op=="run" || op=="movie-play" || op=="movie-step") && (FCEUMOV_Mode(MOVIEMODE_RECORD) || (FCEUMOV_Mode(MOVIEMODE_TASEDITOR) && isTaseditorRecording()))){reply(id,false,"disable movie recording before replaying from the REA page");return;}
- if(stepLeft) { if(op=="pause" || op=="bookmark") { reply(stepId,false,"interrupted by pause"); stepLeft=stepId=0; EmulationPaused=1; } else { reply(id,false,"bounded execution is busy"); return; } }
+ unsigned interrupted=0;
+ if(stepLeft) { if(op=="pause" || op=="bookmark") { interrupted=stepId;stopReason="pause interrupted bounded step";stepLeft=stepId=0; EmulationPaused=1; } else { reply(id,false,"bounded execution is busy"); return; } }
  bool ok=true; const char* message="completed";
  if(op=="pause") EmulationPaused=1;
  else if(op=="bookmark") {EmulationPaused=1;digestMovieInputs();}
+ else if(op=="native-tool") {EmulationPaused=1;ok=REA_OpenWindowsTool(a);message=ok?"native tool open/focus requested; its state is live, not bound to browser evidence":"native tool unavailable in the current mode";}
+ else if(op=="movie-stop" && FCEUMOV_Mode(MOVIEMODE_PLAY|MOVIEMODE_FINISHED)) {EmulationPaused=1;FCEUI_StopMovie();moviePlaybackOwned=false;inputDigest.clear();}
  else if(op=="run") {moviePlaybackOwned=FCEUMOV_Mode(MOVIEMODE_PLAY);EmulationPaused=0;}
  else if(op=="speed" && a>=25 && a<=200 && a%25==0) REA_SetWindowsSpeed(a);
  else if(op=="movie-play" && (FCEUMOV_Mode(MOVIEMODE_TASEDITOR) || (FCEUMOV_Mode(MOVIEMODE_PLAY) && FCEUMOV_GetFrame()<FCEUI_GetMovieLength()))) {moviePlaybackOwned=true;EmulationPaused=0;}
  else if(op=="movie-restart" && FCEUMOV_Mode(MOVIEMODE_PLAY|MOVIEMODE_FINISHED)) {FCEUI_MoviePlayFromBeginning();EmulationPaused=1;screenValid=false;rasterLines=0;}
- else if(op=="movie-step" && a>=1 && a<=3600 && (FCEUMOV_Mode(MOVIEMODE_TASEDITOR) || (FCEUMOV_Mode(MOVIEMODE_PLAY) && FCEUMOV_GetFrame()<FCEUI_GetMovieLength()))) {stepLeft=FCEUMOV_Mode(MOVIEMODE_PLAY)?std::min(a,unsigned(FCEUI_GetMovieLength()-FCEUMOV_GetFrame())):a;stepId=id;injectStepInput=false;EmulationPaused=0;return;}
+ else if(op=="movie-step" && a>=1 && a<=3600 && (FCEUMOV_Mode(MOVIEMODE_TASEDITOR) || (FCEUMOV_Mode(MOVIEMODE_PLAY) && FCEUMOV_GetFrame()<FCEUI_GetMovieLength()))) {stepRequested=a;stepExecuted=0;stopReason="executing";stepLeft=FCEUMOV_Mode(MOVIEMODE_PLAY)?std::min(a,unsigned(FCEUI_GetMovieLength()-FCEUMOV_GetFrame())):a;stepId=id;injectStepInput=false;EmulationPaused=0;return;}
  else if(op=="step" && a>=1 && a<=3600 && b<=255 && c<=255 && !FCEUMOV_Mode(MOVIEMODE_PLAY|MOVIEMODE_RECORD|MOVIEMODE_TASEDITOR) && joyports[0].type==SI_GAMEPAD && (joyports[1].type==SI_GAMEPAD || joyports[1].type==SI_NONE)) {
-  stepLeft=a; stepId=id; pad0=b; pad1=c; injectStepInput=true; EmulationPaused=0; return;
+  stepRequested=a;stepExecuted=0;stopReason="executing";stepLeft=a; stepId=id; pad0=b; pad1=c; injectStepInput=true; EmulationPaused=0; return;
  }
  else if(op=="save" && a<16) {
   if(!EmulationPaused || FCEUMOV_Mode(MOVIEMODE_PLAY|MOVIEMODE_RECORD|MOVIEMODE_TASEDITOR)) { reply(id,false,"pause and stop movie before checkpoint"); return; }
   auto state=std::unique_ptr<EMUFILE_MEMORY>(new EMUFILE_MEMORY());
-  ok=FCEUSS_SaveMS(state.get(),1); if(ok) checkpoints[a]=std::move(state);
+  ok=FCEUSS_SaveMS(state.get(),1); if(ok) {checkpoints[a]=std::move(state);checkpointFrames[a]=FCEUMOV_GetFrame();checkpointNewPpu[a]=bool(newppu);checkpointPal[a]=bool(PAL);}
  }
  else if(op=="load" && a<16 && checkpoints[a]) {
+  if(checkpointNewPpu[a]!=bool(newppu)||checkpointPal[a]!=bool(PAL)){reply(id,false,"checkpoint uses a different PPU core or region");return;}
   if(!EmulationPaused || FCEUMOV_Mode(MOVIEMODE_PLAY|MOVIEMODE_RECORD|MOVIEMODE_TASEDITOR)) { reply(id,false,"pause and stop movie before restore"); return; }
   checkpoints[a]->fseek(0,SEEK_SET); ok=FCEUSS_LoadFP(checkpoints[a].get(),SSLOADPARAM_NOBACKUP);
   EmulationPaused=1; ++epoch; rasterLines=0; screenValid=false; events.clear(); traceLeft=0; traceFinished=false; watchHit=false;
@@ -237,7 +254,7 @@ void command(const std::string& line) {
  else if(op=="trace" && a>=1 && a<=2048) { events.clear(); droppedEvents=0; traceLimit=traceLeft=a; traceFinished=false; }
  else if(op=="watch" && a<=b && b<=65535 && c<=7) { watchStart=a; watchEnd=b; watchType=c; updateHooks(); watchHit=false; events.clear(); droppedEvents=0; }
  else { ok=false; message="unsupported command or invalid state"; }
- forceCapture=true; capture(); reply(id,ok,message);
+ forceCapture=true; capture();if(interrupted)reply(interrupted,false,"interrupted by pause at completed frame boundary");reply(id,ok,message);
 }
 }
 void REA_Poll() {
@@ -273,9 +290,11 @@ void REA_EndFrame() {
  memcpy(screen,XBuf,sizeof(screen)); memcpy(emphasis,XDBuf,sizeof(emphasis)); screenValid=true;
  ++frames;
  bool stop=watchHit || traceFinished;
- if(moviePlaybackOwned && FCEUMOV_Mode(MOVIEMODE_PLAY) && FCEUMOV_GetFrame()>=FCEUI_GetMovieLength()){stop=true;moviePlaybackOwned=false;}
+ const bool movieEnded=moviePlaybackOwned && FCEUMOV_Mode(MOVIEMODE_PLAY) && FCEUMOV_GetFrame()>=FCEUI_GetMovieLength();
+ if(movieEnded){stop=true;moviePlaybackOwned=false;}
  if(stepLeft && !injectStepInput && FCEUMOV_Mode(MOVIEMODE_FINISHED)) stop=true;
- if(stepLeft && !--stepLeft) stop=true;
+ if(stepLeft) {++stepExecuted;if(!--stepLeft)stop=true;}
+ if(stop)stopReason=watchHit?"watch hit":traceFinished?"trace limit":movieEnded?"movie end":"bounded step complete";
  if(stop) EmulationPaused=1;
  if(stop || forceCapture) { forceCapture=true; capture(); }
  if(stepId && (!stepLeft || stop)) { reply(stepId,true,watchHit?"stopped at frame boundary after watch hit":traceFinished?"stopped at frame boundary after trace limit":"stepped"); stepId=stepLeft=0; }
@@ -284,6 +303,8 @@ void REA_EndFrame() {
 }
 void REA_Reset() {
  inputDigest.clear();moviePlaybackOwned=false;
+ stepRequested=stepExecuted=0;stopReason="machine reset or ROM changed";
+ memset(checkpointFrames,0,sizeof(checkpointFrames));
  ++epoch; for(auto& cp:checkpoints) cp.reset(); stepLeft=stepId=traceLeft=watchType=0; updateHooks();
  events.clear(); droppedEvents=0; rasterLines=0; screenValid=false; forceCapture=true;
 }
